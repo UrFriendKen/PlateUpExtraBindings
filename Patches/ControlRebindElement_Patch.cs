@@ -13,13 +13,5 @@ namespace ExtraBindings.Patches
             BindingsRegistry.RegisterGlobalLocalisation();
             BindingsRegistry.AddRebindOptions(__instance);
         }
-
-
-        [HarmonyPatch(typeof(ControlRebindElement), "TriggerRebind")]
-        [HarmonyPostfix]
-        static void Setup_Postfix(ControlRebindElement __instance, string action)
-        {
-            Main.LogInfo(action);
-        }
     }
 }

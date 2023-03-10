@@ -291,14 +291,16 @@ namespace ExtraBindings
         public string ID;
         public string Name;
         public InputActionType InputType;
+        public bool AllowRebind;
         List<Binding> Bindings;
 
-        public InputAction(string id, string name, InputActionType inputType)
+        public InputAction(string id, string name, InputActionType inputType, bool allowRebind)
         {
             ID = id;
             Name = name;
             InputType = inputType;
             Bindings = new List<Binding>();
+            AllowRebind = allowRebind;
         }
 
         public InputAction AddBinding(Binding binding)

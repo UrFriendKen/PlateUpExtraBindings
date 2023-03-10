@@ -50,7 +50,7 @@ namespace ExtraBindings
 
         public static InputAction AddValueAction(string id, string displayName)
         {
-            return AddAction(id, displayName, InputActionType.Value);
+            return AddAction(id, displayName, InputActionType.Value, allowRebind: false);
         }
 
         public static InputAction AddButtonAction(string id, string displayName)
@@ -58,9 +58,9 @@ namespace ExtraBindings
             return AddAction(id, displayName, InputActionType.Button);
         }
 
-        private static InputAction AddAction(string id, string displayName, InputActionType inputType)
+        private static InputAction AddAction(string id, string displayName, InputActionType inputType, bool allowRebind = true)
         {
-            return AddAction(new InputAction(id, displayName, inputType));
+            return AddAction(new InputAction(id, displayName, inputType, allowRebind));
         }
 
         public static InputAction AddAction(InputAction inputAction)
@@ -156,9 +156,12 @@ namespace ExtraBindings
 
         internal static void AddRebindOptions(ControlRebindElement instance)
         {
-            foreach (string key in Registered.Keys)
+            foreach (KeyValuePair<string, InputAction> kvp in Registered)
             {
-                instance.AddRebindOption(key, key);
+                if (kvp.Value.AllowRebind)
+                {
+                    instance.AddRebindOption(kvp.Key, kvp.Key);
+                }
             }
         }
 

@@ -3,6 +3,7 @@ using Kitchen.Modules;
 using KitchenData;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -10,6 +11,16 @@ namespace ExtraBindings
 {
     public static class BindingsRegistry
     {
+        public enum Category
+        {
+            Null,
+            Movement,
+            Interaction,
+            Accessibility,
+            Social,
+            Menus
+        }
+
         public class PlayerActionState
         {
             public Dictionary<string, Vector2> ValueActionStates { get; } = new Dictionary<string, Vector2>();
@@ -48,19 +59,58 @@ namespace ExtraBindings
 
         static Dictionary<int, PlayerActionState> ActionStatesCache = new Dictionary<int, PlayerActionState>();
 
-        public static InputAction AddValueAction(string id, string displayName)
+        private static Dictionary<Category, List<string>> ActionKeysByCategory;
+
+        static bool isInit = false;
+
+        private static void Init()
         {
-            return AddAction(id, displayName, InputActionType.Value, allowRebind: false);
+            if (!isInit)
+            {
+                isInit = true;
+                ActionKeysByCategory = new Dictionary<Category, List<string>>();
+                foreach (Category cat in Enum.GetValues(typeof(Category)).Cast<Category>())
+                {
+                    ActionKeysByCategory.Add(cat, new List<string>());
+                }
+                Main.LogInfo("Intialized ActionKeysByCategory.");
+            }
         }
 
-        public static InputAction AddButtonAction(string id, string displayName)
+        public static Dictionary<Category, List<string>> GetActionKeysByCategory(bool includeDisallowedRebinds = true)
         {
-            return AddAction(id, displayName, InputActionType.Button);
+            if (includeDisallowedRebinds)
+            {
+                return ActionKeysByCategory;
+            }
+            Dictionary<Category, List<string>> result = new Dictionary<Category, List<string>>();
+            foreach(KeyValuePair<Category, List<string>> kvp in ActionKeysByCategory)
+            {
+                result.Add(kvp.Key, kvp.Value.Where(x => Registered[x].AllowRebind).ToList());
+            }
+            return result;
         }
 
-        private static InputAction AddAction(string id, string displayName, InputActionType inputType, bool allowRebind = true)
+        public static InputAction AddValueAction(string id, string displayName, Category category)
         {
-            return AddAction(new InputAction(id, displayName, inputType, allowRebind));
+            return AddAction(id, displayName, category, InputActionType.Value, allowRebind: false);
+        }
+
+        public static InputAction AddButtonAction(string id, string displayName, Category category, bool allowRebind = true)
+        {
+            return AddAction(id, displayName, category, InputActionType.Button, allowRebind);
+        }
+
+        private static InputAction AddAction(string id, string displayName, Category category, InputActionType inputType, bool allowRebind = true)
+        {
+            Init();
+            if (category == Category.Null)
+            {
+                throw new ArgumentException("BindingsRegistry.Category.Null cannot be used!", "category");
+            }
+            InputAction action = AddAction(new InputAction(id, displayName, category, inputType, allowRebind));
+            ActionKeysByCategory[category].Add(id);
+            return action;
         }
 
         public static InputAction AddAction(InputAction inputAction)
@@ -167,6 +217,7 @@ namespace ExtraBindings
 
         internal static void RegisterGlobalLocalisation()
         {
+            Init();
             foreach (KeyValuePair<string, InputAction> kvp in Registered)
             {
                 if (!GameData.Main.GlobalLocalisation.Text.ContainsKey(kvp.Key))

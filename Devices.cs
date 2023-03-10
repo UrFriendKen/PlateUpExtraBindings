@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.ComponentModel;
 using UnityEngine.InputSystem;
 
 namespace ExtraBindings
@@ -291,14 +292,16 @@ namespace ExtraBindings
         public string ID;
         public string Name;
         public InputActionType InputType;
+        public BindingsRegistry.Category Category;
         public bool AllowRebind;
         List<Binding> Bindings;
 
-        public InputAction(string id, string name, InputActionType inputType, bool allowRebind)
+        public InputAction(string id, string name, BindingsRegistry.Category category, InputActionType inputType, bool allowRebind)
         {
             ID = id;
             Name = name;
             InputType = inputType;
+            Category = category;
             Bindings = new List<Binding>();
             AllowRebind = allowRebind;
         }

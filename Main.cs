@@ -1,11 +1,11 @@
-﻿using Controllers;
+﻿using ExtraBindings.Menus;
+using Kitchen;
 using KitchenLib;
 using KitchenLib.Event;
 using KitchenMods;
-using System.Collections.Generic;
+using System;
 using System.Reflection;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 // Namespace should have "Kitchen" in the beginning
 namespace ExtraBindings
@@ -51,15 +51,15 @@ namespace ExtraBindings
 
         protected override void OnUpdate()
         {
-            foreach (KeyValuePair<int, ButtonState> state in BindingsRegistry.GetButtonActionStates("CustomButtonAction0"))
-            {
-                Main.LogInfo($"{state.Key}: {state.Value}");
+            //foreach (KeyValuePair<int, ButtonState> state in BindingsRegistry.GetButtonActionStates("CustomButtonAction0"))
+            //{
+            //    Main.LogInfo($"{state.Key}: {state.Value}");
                 
-            }
-            foreach (KeyValuePair<int, Vector2> state in BindingsRegistry.GetValueActionStates("CustomValueAction"))
-            {
-                Main.LogInfo($"{state.Key}: {state.Value}");
-            }
+            //}
+            //foreach (KeyValuePair<int, Vector2> state in BindingsRegistry.GetValueActionStates("CustomValueAction"))
+            //{
+            //    Main.LogInfo($"{state.Key}: {state.Value}");
+            //}
         }
 
         protected override void OnPostActivate(KitchenMods.Mod mod)
@@ -73,10 +73,18 @@ namespace ExtraBindings
 
             // Register custom GDOs
             AddGameData();
+            SetupMenus();
 
             // Perform actions when game data is built
             Events.BuildGameDataEvent += delegate (object s, BuildGameDataEventArgs args)
             {
+                if (args.firstBuild)
+                {
+                    // Will only be performed once
+                }
+
+                // Will be performed multiple times
+                // See reply for when it happens
             };
 
             string[] keyboardDefaults = {
@@ -97,15 +105,49 @@ namespace ExtraBindings
             {
                 string key = $"CustomButtonAction{i}";
                 string displayText = $"Button{i}";
-                BindingsRegistry.AddButtonAction(key, displayText)
+                BindingsRegistry.AddButtonAction(key, displayText, BindingsRegistry.Category.Interaction, allowRebind: false)
+                    .AddBinding(new KeyboardBinding(keyboardDefaults[i], isAnalog: false))
+                    .AddBinding(new ControllerBinding(controllerDefaults[i], isAnalog: false));
+
+                key = $"CustomButtonAction{i + 5}";
+                displayText = $"Button{i + 5}";
+                BindingsRegistry.AddButtonAction(key, displayText, BindingsRegistry.Category.Accessibility)
                     .AddBinding(new KeyboardBinding(keyboardDefaults[i], isAnalog: false))
                     .AddBinding(new ControllerBinding(controllerDefaults[i], isAnalog: false));
             }
 
-            BindingsRegistry.AddValueAction("CustomValueAction", "Value")
+            BindingsRegistry.AddValueAction("CustomValueAction", "Value", BindingsRegistry.Category.Movement)
                 .AddBinding(new KeyboardBinding(KeyboardBinding.Composite.WASD, isAnalog: false))
                 .AddBinding(new ControllerBinding(ControllerBinding.Composite.LeftStick, isAnalog: true));
         }
+
+        private void SetupMenus()
+        {
+
+            Events.MainMenu_SetupEvent = (EventHandler<MainMenu_SetupArgs>)Delegate.Combine(Events.MainMenu_SetupEvent, (EventHandler<MainMenu_SetupArgs>)delegate (object s, MainMenu_SetupArgs args)
+            {
+                args.addSubmenuButton.Invoke(args.instance, new object[3]
+                {
+                "Edit Controls",
+                typeof(ChangeControlsMenu<PauseMenuAction>),
+                false
+                });
+            });
+            Events.PlayerPauseView_SetupMenusEvent = (EventHandler<PlayerPauseView_SetupMenusArgs>)Delegate.Combine(Events.PlayerPauseView_SetupMenusEvent, (EventHandler<PlayerPauseView_SetupMenusArgs>)delegate (object s, PlayerPauseView_SetupMenusArgs args)
+            {
+                args.addMenu.Invoke(args.instance, new object[2]
+                {
+                typeof(ChangeControlsMenu<PauseMenuAction>),
+                new ChangeControlsMenu<PauseMenuAction>(args.instance.ButtonContainer, args.module_list)
+                });
+            });
+            //Events.PreferenceMenu_PauseMenu_CreateSubmenusEvent += (s, args) =>
+            //{
+            //    args.Menus.Add(typeof(ChangeControlsMenu<PauseMenuAction>), new ChangeControlsMenu<PauseMenuAction>(args.Container, args.Module_list));
+            //};
+            //ModsPreferencesMenu<PauseMenuAction>.RegisterMenu(MOD_NAME, typeof(ChangeControlsMenu<PauseMenuAction>), typeof(PauseMenuAction));
+        }
+
         #region Logging
         public static void LogInfo(string _log) { Debug.Log($"[{MOD_NAME}] " + _log); }
         public static void LogWarning(string _log) { Debug.LogWarning($"[{MOD_NAME}] " + _log); }

@@ -87,33 +87,27 @@ namespace ExtraBindings
                 // See reply for when it happens
             };
 
-            string[] keyboardDefaults = {
-                KeyboardBinding.Button.Alpha1,
-                KeyboardBinding.Button.Alpha2,
-                KeyboardBinding.Button.Alpha3,
-                KeyboardBinding.Button.Alpha4,
-                KeyboardBinding.Button.Alpha5 };
+            //string[] keyboardDefaults = {
+            //    KeyboardBinding.Button.Alpha1,
+            //    KeyboardBinding.Button.Alpha2,
+            //    KeyboardBinding.Button.Alpha3,
+            //    KeyboardBinding.Button.Alpha4,
+            //    KeyboardBinding.Button.Alpha5 };
 
-            string[] controllerDefaults = {
-                ControllerBinding.Button.DPadLeft,
-                ControllerBinding.Button.DPadRight,
-                ControllerBinding.Button.DPadUp,
-                ControllerBinding.Button.DPadDown,
-                ControllerBinding.Button.LeftStickButton };
+            //string[] controllerDefaults = {
+            //    ControllerBinding.Button.DPadLeft,
+            //    ControllerBinding.Button.DPadRight,
+            //    ControllerBinding.Button.DPadUp,
+            //    ControllerBinding.Button.DPadDown,
+            //    ControllerBinding.Button.LeftStickButton };
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < 55; i++)
             {
                 string key = $"CustomButtonAction{i}";
                 string displayText = $"Button{i}";
-                BindingsRegistry.AddButtonAction(key, displayText, BindingsRegistry.Category.Interaction, allowRebind: false)
-                    .AddBinding(new KeyboardBinding(keyboardDefaults[i], isAnalog: false))
-                    .AddBinding(new ControllerBinding(controllerDefaults[i], isAnalog: false));
-
-                key = $"CustomButtonAction{i + 5}";
-                displayText = $"Button{i + 5}";
                 BindingsRegistry.AddButtonAction(key, displayText, BindingsRegistry.Category.Accessibility)
-                    .AddBinding(new KeyboardBinding(keyboardDefaults[i], isAnalog: false))
-                    .AddBinding(new ControllerBinding(controllerDefaults[i], isAnalog: false));
+                    .AddBinding(new KeyboardBinding(KeyboardBinding.Button.Alpha1, isAnalog: false))
+                    .AddBinding(new ControllerBinding(ControllerBinding.Button.DPadLeft, isAnalog: false));
             }
 
             BindingsRegistry.AddValueAction("CustomValueAction", "Value", BindingsRegistry.Category.Movement)

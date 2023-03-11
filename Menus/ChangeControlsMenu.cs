@@ -11,13 +11,10 @@ namespace ExtraBindings.Menus
 {
     internal class ChangeControlsMenu<T> : KLMenu<T>
     {
-        private static readonly float columnWidth = 6f;
+        private static readonly float columnWidth = 4f;
+        private static readonly float rowHeight = 0.3f;
 
-        private static readonly int controlsPerColumn = 25;
-
-        private static readonly Vector2 selectPosition = new Vector2(1f, 4f);
-
-        private static readonly Vector2 backButtonPosition = new Vector2(1f, 3.5f);
+        private static readonly int controlsPerColumn = 20;
 
         private List<BindingsRegistry.Category> categories;
 
@@ -60,12 +57,20 @@ namespace ExtraBindings.Menus
             List<BindingsRegistry.Category> usedCategories = new List<BindingsRegistry.Category>();
             List<string> usedCategoriesStrings = new List<string>();
 
+            int maxControlsPageIndex = 0;
+            int maxControlsCount = 0;
             for (int i = 0; i < categories.Count; i++)
             {
                 if (CustomControls[categories[i]].Count > 0 || VanillaControls[categories[i]].Count > 0)
                 {
                     usedCategories.Add(categories[i]);
                     usedCategoriesStrings.Add(categoriesStrings[i]);
+                    int count = CustomControls[categories[i]].Count + VanillaControls[categories[i]].Count;
+                    if (count > maxControlsCount)
+                    {
+                        maxControlsCount = count;
+                        maxControlsPageIndex = usedCategories.Count - 1;
+                    }
                 }
             }
             if (usedCategories.Count == 0)
@@ -73,55 +78,88 @@ namespace ExtraBindings.Menus
                 usedCategories.Add(BindingsRegistry.Category.Null);
                 usedCategoriesStrings.Add("No Available Controls");
             }
-            CategoryPageSelector = new Option<BindingsRegistry.Category>(usedCategories, BindingsRegistry.Category.Movement, usedCategoriesStrings);
+            float headerPostionX = maxControlsCount/controlsPerColumn / 2f * columnWidth;
+
+            CategoryPageSelector = new Option<BindingsRegistry.Category>(usedCategories, usedCategories[maxControlsPageIndex], usedCategoriesStrings);
             CategoryPageSelector.OnChanged += delegate (object _, BindingsRegistry.Category result)
             {
-                Redraw(player_id, result);
+                Redraw(player_id, result, headerPostionX);
             };
-            Redraw(player_id, usedCategories[0]);
+            Redraw(player_id, usedCategories[maxControlsPageIndex], headerPostionX);
         }
 
-        private void Redraw(int player_id, BindingsRegistry.Category category)
+        private void Redraw(int player_id, BindingsRegistry.Category category, float headerPositionX)
         {
             ModuleList.Clear();
-            AddSelect(CategoryPageSelector).Position = selectPosition;
+
+            Vector2 selectPosition = new Vector2(headerPositionX, 4f);
+            Vector2 backButtonPosition = new Vector2(headerPositionX, 3.5f);
+            AddSelect(CategoryPageSelector, selectPosition);
             New<SpacerElement>();
-            AddButton(base.Localisation["MENU_BACK_SETTINGS"], delegate
+            ButtonElement backButton = AddButton(base.Localisation["MENU_BACK_SETTINGS"], delegate
             {
                 RequestPreviousMenu();
-            }).Position = backButtonPosition;
+            }, position: backButtonPosition);
+
+            int controlsCount = VanillaControls[category].Count + CustomControls[category].Count;
+            int columns = controlsCount / controlsPerColumn;
+
             if (category != BindingsRegistry.Category.Null)
             {
-                CreateRebindOptions(player_id, VanillaControls[category], CustomControls[category]);
+                int i = 0;
+
+                List<string> allControls = new List<string>();
+
+                allControls.AddRange(VanillaControls[category]);
+                allControls.AddRange(CustomControls[category].OrderBy(x => x));
+
+                allControls.OrderBy(x => x).ToList().ForEach(delegate (string action)
+                {
+                    float columnIndex = Mathf.Floor(i / controlsPerColumn);
+                    float rowIndex = i % controlsPerColumn;
+                    Vector2 position = new Vector2(
+                        x: columnIndex * columnWidth,
+                        y: rowIndex * -rowHeight + 3f);
+                    AddRebindOption(player_id, action, position);
+                    i++;
+                });
             }
         }
 
-        private void CreateRebindOptions(int player_id, List<string> vanillaControls, List<string> controls)
+        private ButtonElement AddButton(string label, Action<int> on_activate, int arg = 0, float scale = 1f, float padding = 0.2f, Vector2 position = default)
         {
-            int columns = controls.Count / controlsPerColumn;
-            int i = 0;
-
-            List<string> allControls = new List<string>();
-
-            allControls.AddRange(vanillaControls);
-            allControls.AddRange(controls.OrderBy(x => x));
-
-            allControls.OrderBy(x => x).ToList().ForEach(delegate (string action)
+            ButtonElement buttonElement = New<ButtonElement>(false);
+            buttonElement.Position = position;
+            buttonElement.SetSize(columnWidth * scale, rowHeight * scale);
+            buttonElement.SetLabel(label);
+            buttonElement.SetStyle(Style);
+            buttonElement.OnActivate += delegate
             {
-                AddRebindOption(i, action, columns);
-                i++;
-            });
+                on_activate(arg);
+            };
+            ModuleList.AddModule(buttonElement, position);
+
+            return buttonElement;
         }
 
-        // To be changed to rebind element buttons
-        private void AddRebindOption(int buttonIndex, string actionKey, int columns)
+        private SelectElement AddSelect<TOpt>(Option<TOpt> option, Vector2 position = default)
         {
-            New<RemapElement>()
-                .SetSize(columnWidth, 1f)
-                .Position = new Vector2(Mathf.Floor(buttonIndex / controlsPerColumn) * columnWidth - (float)columns * columnWidth / 2f, (float)(buttonIndex % controlsPerColumn) * -0.25f + 3f);
-            //InfoBoxElement infoBoxElement = AddInfo(actionKey);
-            //infoBoxElement.SetSize(columnWidth, 1f);
-            //infoBoxElement.Position = new Vector2(Mathf.Floor(buttonIndex / controlsPerColumn) * columnWidth - (float)columns * columnWidth / 2f, (float)(buttonIndex % controlsPerColumn) * -0.25f + 3f);
+            SelectElement selectElement = New<SelectElement>(false);
+            selectElement.Position = position;
+            selectElement.SetSize(DefaultElementSize.x, DefaultElementSize.y);
+            selectElement.SetOptions(option.Names);
+            selectElement.SetStyle(Style);
+            selectElement.Value = option.Chosen;
+            selectElement.OnOptionHighlighted += option.SetChosen;
+            ModuleList.AddModule(selectElement, position);
+            return selectElement;
+        }
+
+
+        // To be changed to rebind element buttons
+        private Element AddRebindOption(int player_id, string actionKey, Vector2 position)
+        {
+            return AddButton(actionKey, null, position: position);
         }
     }
 }

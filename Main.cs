@@ -5,7 +5,9 @@ using KitchenLib.Event;
 using KitchenMods;
 using System;
 using System.Reflection;
+using Unity.Entities.UniversalDelegates;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 // Namespace should have "Kitchen" in the beginning
 namespace ExtraBindings
@@ -101,11 +103,15 @@ namespace ExtraBindings
             //    ControllerBinding.Button.DPadDown,
             //    ControllerBinding.Button.LeftStickButton };
 
-            for (int i = 0; i < 55; i++)
+            BindingsRegistry.AddButtonAction($"Accessibility1", "Accessibility", BindingsRegistry.Category.Accessibility)
+                .AddBinding(new KeyboardBinding(KeyboardBinding.Button.Alpha1, isAnalog: false))
+                .AddBinding(new ControllerBinding(ControllerBinding.Button.DPadLeft, isAnalog: false));
+
+            for (int i = 0; i < 81; i++)
             {
                 string key = $"CustomButtonAction{i}";
                 string displayText = $"Button{i}";
-                BindingsRegistry.AddButtonAction(key, displayText, BindingsRegistry.Category.Accessibility)
+                BindingsRegistry.AddButtonAction(key, displayText, BindingsRegistry.Category.Interaction)
                     .AddBinding(new KeyboardBinding(KeyboardBinding.Button.Alpha1, isAnalog: false))
                     .AddBinding(new ControllerBinding(ControllerBinding.Button.DPadLeft, isAnalog: false));
             }

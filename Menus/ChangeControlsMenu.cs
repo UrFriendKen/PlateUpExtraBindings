@@ -5,63 +5,83 @@ using KitchenLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Collections;
 using UnityEngine;
+using static ExtraBindings.Binding;
+using static ExtraBindings.BindingsRegistry;
 
 namespace ExtraBindings.Menus
 {
     internal class ChangeControlsMenu<T> : KLMenu<T>
     {
-        private static readonly float columnWidth = 4f;
+        private static readonly float columnWidth = 3.5f;
         private static readonly float rowHeight = 0.3f;
 
-        private static readonly int controlsPerColumn = 20;
+        private static readonly float horizontalPadding = 0.1f;
+        private static readonly float verticalPadding = 0.05f;
 
-        private List<BindingsRegistry.Category> categories;
+        private static readonly int maxColumns = 4;
+        private static readonly int controlsPerColumn = 20;
+        private static readonly int maxControlsPerPage = maxColumns * controlsPerColumn;
+
+        private List<Category> categories;
 
         private List<string> categoriesStrings;
 
-        private Option<BindingsRegistry.Category> CategoryPageSelector;
+        private Option<Category> CategoryPageSelector;
+        private Option<int> ControlPageSelector;
 
-        private Dictionary<BindingsRegistry.Category, List<string>> VanillaControls;
-        private Dictionary<BindingsRegistry.Category, List<string>> CustomControls;
+        // (LocalisationKey, ActionKey)
+        private Dictionary<Category, List<(string, string)>> VanillaControls;
+        private Dictionary<Category, List<(string, string)>> CustomControls;
 
         public ChangeControlsMenu(Transform container, ModuleList module_list) : base(container, module_list)
         {
-            categories = Enum.GetValues(typeof(BindingsRegistry.Category)).Cast<BindingsRegistry.Category>().Where(x => x != BindingsRegistry.Category.Null).ToList();
-            categoriesStrings = Enum.GetNames(typeof(BindingsRegistry.Category)).Where(x => x != Enum.GetName(typeof(BindingsRegistry.Category), BindingsRegistry.Category.Null)).ToList();
+            categories = Enum.GetValues(typeof(Category)).Cast<Category>().Where(x => x != Category.Null).ToList();
+            categoriesStrings = Enum.GetNames(typeof(Category)).Where(x => x != Enum.GetName(typeof(Category), Category.Null)).ToList();
 
-            VanillaControls = new Dictionary<BindingsRegistry.Category, List<string>>();
-            foreach (BindingsRegistry.Category category in categories)
+            VanillaControls = new Dictionary<Category, List<(string, string)>>();
+            CustomControls = new Dictionary<Category, List<(string, string)>>();
+            foreach (Category category in categories)
             {
-                VanillaControls.Add(category, new List<string>());
+                VanillaControls.Add(category, new List<(string, string)>());
+                CustomControls.Add(category, new List<(string, string)>());
             }
 
-            VanillaControls[BindingsRegistry.Category.Movement] = new List<string> {
-                Controls.StopMoving
+            VanillaControls[Category.Movement] = new List<(string, string)> {
+                ("REBIND_HOLD_POSITION", Controls.StopMoving)
             };
 
-            VanillaControls[BindingsRegistry.Category.Interaction] = new List<string> {
-                Controls.Interact1,
-                Controls.Interact2,
-                Controls.Interact3,
-                Controls.Interact4,
+            VanillaControls[Category.Interaction] = new List<(string, string)> {
+                ("REBIND_INTERACT1", Controls.Interact1),
+                ("REBIND_INTERACT2", Controls.Interact2),
+                ("REBIND_INTERACT3", Controls.Interact3),
+                ("REBIND_INTERACT4", Controls.Interact4),
             };
         }
 
         public override void Setup(int player_id)
         {
-            BindingsRegistry.RegisterGlobalLocalisation();
-            BindingsRegistry.PlayerActionState playerbindings = BindingsRegistry.GetPlayerActionStates(player_id);
-            CustomControls = BindingsRegistry.GetActionKeysByCategory(includeDisallowedRebinds: false);
+            RegisterGlobalLocalisation();
 
-            List<BindingsRegistry.Category> usedCategories = new List<BindingsRegistry.Category>();
+            Dictionary<Category, List<string>> customControlActionKeys = GetActionKeysByCategory(includeDisallowedRebinds: false);
+            foreach (Category category in categories)
+            {
+                CustomControls[category].Clear();
+                for (int i = 0; i < customControlActionKeys[category].Count; i++)
+                {
+                    CustomControls[category].Add((customControlActionKeys[category][i], customControlActionKeys[category][i]));
+                }
+            }
+
+            List<Category> usedCategories = new List<Category>();
             List<string> usedCategoriesStrings = new List<string>();
 
             int maxControlsPageIndex = 0;
             int maxControlsCount = 0;
             for (int i = 0; i < categories.Count; i++)
             {
-                if (CustomControls[categories[i]].Count > 0 || VanillaControls[categories[i]].Count > 0)
+                if (customControlActionKeys[categories[i]].Count > 0 || VanillaControls[categories[i]].Count > 0)
                 {
                     usedCategories.Add(categories[i]);
                     usedCategoriesStrings.Add(categoriesStrings[i]);
@@ -75,54 +95,85 @@ namespace ExtraBindings.Menus
             }
             if (usedCategories.Count == 0)
             {
-                usedCategories.Add(BindingsRegistry.Category.Null);
+                usedCategories.Add(Category.Null);
                 usedCategoriesStrings.Add("No Available Controls");
             }
-            float headerPostionX = maxControlsCount/controlsPerColumn / 2f * columnWidth;
+            float headerPositionX = Mathf.Min(maxControlsCount/controlsPerColumn, maxColumns - 1) / 2f * (columnWidth + horizontalPadding);
 
-            CategoryPageSelector = new Option<BindingsRegistry.Category>(usedCategories, usedCategories[maxControlsPageIndex], usedCategoriesStrings);
-            CategoryPageSelector.OnChanged += delegate (object _, BindingsRegistry.Category result)
+            CategoryPageSelector = new Option<Category>(usedCategories, usedCategories[maxControlsPageIndex], usedCategoriesStrings);
+            CategoryPageSelector.OnChanged += delegate (object _, Category result)
             {
-                Redraw(player_id, result, headerPostionX);
+                Redraw(player_id, result, headerPositionX);
             };
-            Redraw(player_id, usedCategories[maxControlsPageIndex], headerPostionX);
+            Redraw(player_id, usedCategories[maxControlsPageIndex], headerPositionX);
         }
 
-        private void Redraw(int player_id, BindingsRegistry.Category category, float headerPositionX)
+        private void Redraw(int player_id, Category category, float headerPositionX, int page = 0, bool isCategoryChanged = true)
         {
             ModuleList.Clear();
 
             Vector2 selectPosition = new Vector2(headerPositionX, 4f);
             Vector2 backButtonPosition = new Vector2(headerPositionX, 3.5f);
-            AddSelect(CategoryPageSelector, selectPosition);
-            New<SpacerElement>();
+            Vector2 controlPageSelectPosition = new Vector2(headerPositionX, 3f);
+
+            float topControlYPosition = 3f;
+            for (int i = 0; i < 2; i++)
+            {
+                if (i == 0 && isCategoryChanged || i == 1 && !isCategoryChanged)
+                {
+                    SelectElement categorySelect = AddSelect(CategoryPageSelector, position: selectPosition);
+                    continue;
+                }
+
+                int controlsCount = VanillaControls[category].Count + CustomControls[category].Count;
+                int columns = controlsCount / controlsPerColumn;
+                if (controlsCount > maxControlsPerPage)
+                {
+                    topControlYPosition = 2.5f;
+                    List<int> controlPages = new List<int>();
+                    List<string> controlPagesStrings = new List<string>();
+                    for (int j = 0; j < controlsCount / maxControlsPerPage + 1; j++)
+                    {
+                        controlPages.Add(j);
+                        controlPagesStrings.Add($"Page {j + 1}");
+                    }
+                    ControlPageSelector = new Option<int>(controlPages, page, controlPagesStrings);
+                    ControlPageSelector.OnChanged += delegate (object _, int result)
+                    {
+                        Redraw(player_id, category, headerPositionX, result, isCategoryChanged: false);
+                    };
+                    SelectElement pageSelect = AddSelect(ControlPageSelector, position: controlPageSelectPosition);
+                }
+            }
+
             ButtonElement backButton = AddButton(base.Localisation["MENU_BACK_SETTINGS"], delegate
             {
                 RequestPreviousMenu();
             }, position: backButtonPosition);
 
-            int controlsCount = VanillaControls[category].Count + CustomControls[category].Count;
-            int columns = controlsCount / controlsPerColumn;
-
-            if (category != BindingsRegistry.Category.Null)
+            if (category != Category.Null)
             {
-                int i = 0;
 
-                List<string> allControls = new List<string>();
+                List<(string, string)> allControls = new List<(string, string)>();
 
                 allControls.AddRange(VanillaControls[category]);
-                allControls.AddRange(CustomControls[category].OrderBy(x => x));
+                allControls.AddRange(CustomControls[category].OrderBy(x => x.Item2));
 
-                allControls.OrderBy(x => x).ToList().ForEach(delegate (string action)
+                int controlsToDraw = Mathf.Min(allControls.Count, maxControlsPerPage);
+                int startIndex = page * maxControlsPerPage;
+                for (int i = 0; i < controlsToDraw; i++)
                 {
+                    (string, string) control = allControls[startIndex + i];
+                    string localisationKey = control.Item1;
+                    string actionKey = control.Item2;
+
                     float columnIndex = Mathf.Floor(i / controlsPerColumn);
                     float rowIndex = i % controlsPerColumn;
                     Vector2 position = new Vector2(
-                        x: columnIndex * columnWidth,
-                        y: rowIndex * -rowHeight + 3f);
-                    AddRebindOption(player_id, action, position);
-                    i++;
-                });
+                        x: columnIndex * (columnWidth + horizontalPadding),
+                        y: rowIndex * -(rowHeight + verticalPadding) + topControlYPosition);
+                    AddRemap(player_id, localisationKey, actionKey, position: position);
+                }
             }
         }
 
@@ -130,7 +181,7 @@ namespace ExtraBindings.Menus
         {
             ButtonElement buttonElement = New<ButtonElement>(false);
             buttonElement.Position = position;
-            buttonElement.SetSize(columnWidth * scale, rowHeight * scale);
+            buttonElement.SetSize(Math.Min(DefaultElementSize.x, columnWidth) * scale, DefaultElementSize.y * scale);
             buttonElement.SetLabel(label);
             buttonElement.SetStyle(Style);
             buttonElement.OnActivate += delegate
@@ -142,11 +193,11 @@ namespace ExtraBindings.Menus
             return buttonElement;
         }
 
-        private SelectElement AddSelect<TOpt>(Option<TOpt> option, Vector2 position = default)
+        private SelectElement AddSelect<TOpt>(Option<TOpt> option, float scale = 1f, float padding = 0.2f, Vector2 position = default)
         {
             SelectElement selectElement = New<SelectElement>(false);
             selectElement.Position = position;
-            selectElement.SetSize(DefaultElementSize.x, DefaultElementSize.y);
+            selectElement.SetSize(Math.Min(DefaultElementSize.x, columnWidth) * scale, DefaultElementSize.y * scale);
             selectElement.SetOptions(option.Names);
             selectElement.SetStyle(Style);
             selectElement.Value = option.Chosen;
@@ -155,11 +206,51 @@ namespace ExtraBindings.Menus
             return selectElement;
         }
 
-
-        // To be changed to rebind element buttons
-        private Element AddRebindOption(int player_id, string actionKey, Vector2 position)
+        private RemapElement AddRemap(int player_id, string localisationKey, string actionKey, float scale = 1f, float padding = 0.2f, Vector2 position = default)
         {
-            return AddButton(actionKey, null, position: position);
+            RemapElement remapElement = New<RemapElement>(false);
+            remapElement.Position = position;
+            remapElement.SetSize(columnWidth * scale, rowHeight * scale);
+            remapElement.SetButton(player_id, actionKey);
+            remapElement.SetLabel(Localisation[localisationKey]);
+            remapElement.SetStyle(ElementStyle.RebindPrompt);
+            remapElement.OnActivate += delegate
+            {
+                StartRebind(player_id, localisationKey, actionKey, remapElement);
+            };
+            ModuleList.AddModule(remapElement, position);
+            return remapElement;
+        }
+
+        private void StartRebind(int player_id, string localisationKey, string actionKey, RemapElement remapElement)
+        {
+            remapElement.SetLabel(Localisation["REBIND_NOW"]);
+            TriggerRebind(player_id, localisationKey, actionKey, remapElement);
+        }
+
+        private void EndRebind(string localisationKey, RemapElement remapElement)
+        {
+            remapElement.SetLabel(Localisation[localisationKey]);
+        }
+
+        private void TriggerRebind(int player_id, string localisationKey, string actionKey, RemapElement remapElement)
+        {
+            InputSourceIdentifier.DefaultInputSource.RequestRebinding(player_id, actionKey, delegate (RebindResult result)
+            {
+                switch (result)
+                {
+                    case RebindResult.RejectedInUse:
+                        remapElement.SetLabel(Localisation["REBIND_IN_USE"]);
+                        return;
+                    case RebindResult.Fail:
+                        TriggerRebind(player_id, localisationKey, actionKey, remapElement);
+                        return;
+                    case RebindResult.Success:
+                        ProfileManager.Main.Save();
+                        break;
+                }
+                EndRebind(localisationKey, remapElement);
+            });
         }
     }
 }

@@ -1,9 +1,12 @@
-﻿using ExtraBindings.Menus;
+﻿using Controllers;
+using ExtraBindings.Menus;
+using JetBrains.Annotations;
 using Kitchen;
 using KitchenLib;
 using KitchenLib.Event;
 using KitchenMods;
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Unity.Entities.UniversalDelegates;
 using UnityEngine;
@@ -55,12 +58,13 @@ namespace ExtraBindings
         {
             //foreach (KeyValuePair<int, ButtonState> state in BindingsRegistry.GetButtonActionStates("CustomButtonAction0"))
             //{
-            //    Main.LogInfo($"{state.Key}: {state.Value}");
-                
+            //    if (state.Value == ButtonState.Pressed || state.Value == ButtonState.Released)
+            //        Main.LogInfo($"{state.Key}: \"CustomButtonAction0\" {state.Value}");
             //}
-            //foreach (KeyValuePair<int, Vector2> state in BindingsRegistry.GetValueActionStates("CustomValueAction"))
+            //foreach (KeyValuePair<int, ButtonState> state in BindingsRegistry.GetButtonActionStates("CustomButtonAction1"))
             //{
-            //    Main.LogInfo($"{state.Key}: {state.Value}");
+            //    if (state.Value == ButtonState.Pressed || state.Value == ButtonState.Released)
+            //        Main.LogInfo($"{state.Key}: \"CustomButtonAction1\" {state.Value}");
             //}
         }
 
@@ -103,22 +107,22 @@ namespace ExtraBindings
             //    ControllerBinding.Button.DPadDown,
             //    ControllerBinding.Button.LeftStickButton };
 
-            BindingsRegistry.AddButtonAction($"Accessibility1", "Accessibility", BindingsRegistry.Category.Accessibility)
-                .AddBinding(new KeyboardBinding(KeyboardBinding.Button.Alpha1, isAnalog: false))
-                .AddBinding(new ControllerBinding(ControllerBinding.Button.DPadLeft, isAnalog: false));
+            //BindingsRegistry.AddButtonAction($"Accessibility1", "Accessibility", BindingsRegistry.Category.Accessibility)
+            //    .AddBinding(new KeyboardBinding(KeyboardBinding.Button.Alpha1, isAnalog: false))
+            //    .AddBinding(new ControllerBinding(ControllerBinding.Button.DPadLeft, isAnalog: false));
 
-            for (int i = 0; i < 81; i++)
-            {
-                string key = $"CustomButtonAction{i}";
-                string displayText = $"Button{i}";
-                BindingsRegistry.AddButtonAction(key, displayText, BindingsRegistry.Category.Interaction)
-                    .AddBinding(new KeyboardBinding(KeyboardBinding.Button.Alpha1, isAnalog: false))
-                    .AddBinding(new ControllerBinding(ControllerBinding.Button.DPadLeft, isAnalog: false));
-            }
+            //for (int i = 0; i < 81; i++)
+            //{
+            //    string key = $"CustomButtonAction{i}";
+            //    string displayText = $"Button{i}";
+            //    BindingsRegistry.AddButtonAction(key, displayText, BindingsRegistry.Category.Interaction)
+            //        .AddBinding(new KeyboardBinding(KeyboardBinding.Button.Alpha1, isAnalog: false))
+            //        .AddBinding(new ControllerBinding(ControllerBinding.Button.DPadLeft, isAnalog: false));
+            //}
 
-            BindingsRegistry.AddValueAction("CustomValueAction", "Value", BindingsRegistry.Category.Movement)
-                .AddBinding(new KeyboardBinding(KeyboardBinding.Composite.WASD, isAnalog: false))
-                .AddBinding(new ControllerBinding(ControllerBinding.Composite.LeftStick, isAnalog: true));
+            //BindingsRegistry.AddValueAction("CustomValueAction", "Value", BindingsRegistry.Category.Movement)
+            //    .AddBinding(new KeyboardBinding(KeyboardBinding.Composite.WASD, isAnalog: false))
+            //    .AddBinding(new ControllerBinding(ControllerBinding.Composite.LeftStick, isAnalog: true));
         }
 
         private void SetupMenus()
@@ -141,11 +145,6 @@ namespace ExtraBindings
                 new ChangeControlsMenu<PauseMenuAction>(args.instance.ButtonContainer, args.module_list)
                 });
             });
-            //Events.PreferenceMenu_PauseMenu_CreateSubmenusEvent += (s, args) =>
-            //{
-            //    args.Menus.Add(typeof(ChangeControlsMenu<PauseMenuAction>), new ChangeControlsMenu<PauseMenuAction>(args.Container, args.Module_list));
-            //};
-            //ModsPreferencesMenu<PauseMenuAction>.RegisterMenu(MOD_NAME, typeof(ChangeControlsMenu<PauseMenuAction>), typeof(PauseMenuAction));
         }
 
         #region Logging

@@ -37,26 +37,54 @@ namespace ExtraBindings.Patches
             }
             Vector2 position = selected.Position;
             direction = direction.normalized;
-            float num = 99f;
-            foreach (ModuleInstance module in modules)
+            float closestDistance = 99f;
+            float closestAngle = 0f;
+            for (int i = 0; i < 2; i++)
             {
-                if (module == selected || !module.Module.IsSelectable)
+                if (i > 0 && closestDistance != 99f && closestAngle != 0f)
                 {
-                    continue;
+                    break;
                 }
-                Vector2 position2 = module.Position;
-                Vector2 vector = position2 - position;
-                float magnitude = vector.magnitude;
-                float num2 = (vector.x * direction.x + vector.y * direction.y) / magnitude;
-                if (num2 > 0f)
+                
+                foreach (ModuleInstance module in modules)
                 {
-                    float sqrMagnitude = vector.sqrMagnitude;
-                    if (sqrMagnitude < num)
+                    if (module == selected || !module.Module.IsSelectable)
                     {
-                        num = sqrMagnitude;
-                        selected = module;
+                        continue;
+                    }
+                    Vector2 position2 = module.Position;
+                    Vector2 vector = position2 - position;
+                    float magnitude = vector.magnitude;
+                    float angleMatch = (vector.x * direction.x + vector.y * direction.y) / magnitude;
+                    float sqrMagnitude = vector.sqrMagnitude;
+                    switch (i)
+                    {
+                        case 0:
+                            if (angleMatch > 0.999999f && magnitude < 5f)
+                            {
+                                if (angleMatch >= closestAngle && sqrMagnitude < closestDistance)
+                                {
+                                    closestDistance = sqrMagnitude;
+                                    closestAngle = angleMatch;
+                                    selected = module;
+                                }
+                            }
+                            break;
+                        case 1:
+                            if (angleMatch > 0f)
+                            {
+                                if (sqrMagnitude < closestDistance)
+                                {
+                                    closestDistance = sqrMagnitude;
+                                    closestAngle = angleMatch;
+                                    selected = module;
+                                }
+                            }
+                            break;
                     }
                 }
+                Main.LogInfo($"Angle({i}): {closestAngle}");
+                Main.LogInfo($"Distance({i}): {closestDistance}");
             }
             Selected.SetValue(instance, selected);
         }

@@ -1,9 +1,12 @@
 ﻿using Controllers;
+using Kitchen;
 using Kitchen.Modules;
 using KitchenData;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -55,13 +58,43 @@ namespace ExtraBindings
             }
         }
 
+        private struct ProfileSaveData
+        {
+            public string ProfileName { get; private set; }
+
+            public Dictionary<string, bool> EnabledStates;
+
+            public ProfileSaveData(string profileName)
+            {
+                ProfileName = profileName;
+                EnabledStates = new Dictionary<string, bool>();
+            }
+
+            public void Set(string actionKey, bool value)
+            {
+                if (!EnabledStates.ContainsKey(actionKey))
+                {
+                    EnabledStates.Add(actionKey, value);
+                    return;
+                }
+                EnabledStates[actionKey] = value;
+            }
+        }
+
         static Dictionary<string, InputAction> Registered = new Dictionary<string, InputAction>();
 
         static Dictionary<int, PlayerActionState> ActionStatesCache = new Dictionary<int, PlayerActionState>();
 
+        static Dictionary<int, InputActionMap> InputActionMapCache = new Dictionary<int, InputActionMap>();
+
         private static Dictionary<Category, List<string>> ActionKeysByCategory;
 
         static bool isInit = false;
+
+
+        const string SAVE_FOLDER = "ExtraBindings";
+        const string SAVE_FILENAME = "ExtraBindings_SaveData";
+        static Dictionary<string, ProfileSaveData> ProfileData = new Dictionary<string, ProfileSaveData>();
 
         private static void Init()
         {
@@ -175,22 +208,47 @@ namespace ExtraBindings
             return (ButtonState)GetPlayerActionState(playerId, action, InputActionType.Button);
         }
 
+        public static bool ActionEnabled(int playerId, string action, bool? enabled = null)
+        {
+            if (!InputActionMapCache.ContainsKey(playerId))
+            {
+                Main.LogError($"Could not retrieve input map for {playerId}");
+                return true;
+            }
+
+            UnityEngine.InputSystem.InputAction inputAction = InputActionMapCache[playerId].FindAction(action);
+            if (enabled.HasValue)
+            {
+                switch (enabled.Value)
+                {
+                    case true:
+                        inputAction.Enable();
+                        break;
+                    case false:
+                        inputAction.Disable();
+                        break;
+                }
+                SaveProfileData();
+            }
+            return inputAction.enabled;
+        }
+
         private static object GetPlayerActionState(int playerId, string action, InputActionType actionType)
         {
             if (!Registered.TryGetValue(action, out InputAction inputAction))
             {
-                throw new ArgumentException($"{action} is not a registered action!", "id");
+                throw new ArgumentException($"{action} is not a registered actionKey!", "id");
             }
             if (inputAction.InputType != actionType)
             {
-                string errorMsg = $"Wrong method used to retrieve action state for InputActionType.{inputAction.InputType}! ";
+                string errorMsg = $"Wrong method used to retrieve actionKey state for InputActionType.{inputAction.InputType}! ";
                 switch (actionType)
                 {
                     case InputActionType.Value:
-                        errorMsg += "Use GetPlayerValueActionState(int playerId, string action) instead.";
+                        errorMsg += "Use GetPlayerValueActionState(int playerId, string actionKey) instead.";
                         break;
                     case InputActionType.Button:
-                        errorMsg += "Use GetPlayerButtonActionState(int playerId, string action) instead.";
+                        errorMsg += "Use GetPlayerButtonActionState(int playerId, string actionKey) instead.";
                         break;
                     case InputActionType.PassThrough:
                     default:
@@ -236,6 +294,118 @@ namespace ExtraBindings
             }
         }
 
+        internal static void SaveProfileData()
+        {
+            foreach (PlayerInfo player in Players.Main.All())
+            {
+                PlayerProfile profile = player.Profile;
+                if (!profile.IsRealProfile)
+                    continue;
+
+                if (!InputActionMapCache.TryGetValue(player.ID, out InputActionMap map))
+                {
+                    Main.LogError($"Could not retrieve input map for {player.ID}");
+                    continue;
+                }
+
+                if (!ProfileData.ContainsKey(profile.Name))
+                {
+                    ProfileData.Add(profile.Name, new ProfileSaveData(profile.Name));
+                }
+
+                foreach (KeyValuePair<string, InputAction> action in Registered)
+                {
+                    ProfileData[profile.Name].Set(action.Key, ActionEnabled(player.ID, action.Value.ID));
+                }
+            }
+            PruneDeletedProfiles();
+            WriteProfileData(SAVE_FOLDER, SAVE_FILENAME);
+        }
+
+        private static void PruneDeletedProfiles()
+        {
+            IEnumerable<string> allProfiles = ProfileManager.Main.AllProfiles().Where(x => x.IsRealProfile).Select(x => x.Name);
+            ProfileData = ProfileData.Where(kvp => allProfiles.Contains(kvp.Key)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        }
+
+        internal static void LoadEnabledStates()
+        {
+            ReadProfileData(SAVE_FOLDER, SAVE_FILENAME);
+            foreach (PlayerInfo player in Players.Main.All())
+            {
+                PlayerProfile profile = player.Profile;
+                if (!profile.IsRealProfile)
+                    continue;
+
+                if (!ProfileData.TryGetValue(profile.Name, out ProfileSaveData data))
+                {
+                    continue;
+                }
+
+                if (!InputActionMapCache.TryGetValue(player.ID, out InputActionMap map))
+                {
+                    Main.LogError($"Could not retrieve input map for {player.ID}");
+                    continue;
+                }
+
+                foreach (string actionKey in Registered.Keys)
+                {
+                    UnityEngine.InputSystem.InputAction inputAction = map.FindAction(actionKey);
+                    if (inputAction == null)
+                        continue;
+
+                    if (!data.EnabledStates.TryGetValue(actionKey, out bool enabled))
+                        continue;
+
+                    switch (enabled)
+                    {
+                        case true:
+                            inputAction.Enable();
+                            break;
+                        case false:
+                            inputAction.Disable();
+                            break;
+                    }
+                }
+            }
+        }
+
+        private static void WriteProfileData(string folder, string filename)
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append(JsonUtility.ToJson(ProfileData, prettyPrint: true));
+
+            string fullSaveFolderPath = Path.Combine(Application.persistentDataPath, folder);
+            if (!Directory.Exists(fullSaveFolderPath))
+            {
+                Directory.CreateDirectory(fullSaveFolderPath);
+            }
+            File.WriteAllText(Path.Combine(fullSaveFolderPath, filename + ".json"), sb.ToString());
+            Main.LogInfo($"Saved Profile Data to {Path.Combine(fullSaveFolderPath, filename + ".json")}");
+        }
+
+        private static void ReadProfileData(string folder, string filename)
+        {
+            string fullSaveFolderPath = Path.Combine(Application.persistentDataPath, folder);
+            string fullSaveFilePath = Path.Combine(fullSaveFolderPath, filename + ".json");
+            if (!Directory.Exists(fullSaveFolderPath) || !File.Exists(fullSaveFilePath))
+            {
+                Main.LogWarning($"Save file does not exist, skipping. {Path.Combine(fullSaveFolderPath, filename + ".json")}");
+                ProfileData = new Dictionary<string, ProfileSaveData>();
+            }
+
+            try
+            {
+                ProfileData = JsonUtility.FromJson<Dictionary<string, ProfileSaveData>>(File.ReadAllText(Path.Combine(fullSaveFolderPath, filename + ".json")));
+            }
+            catch (Exception e)
+            {
+                Main.LogError($"Failed to parse json in {Path.Combine(fullSaveFolderPath, filename + ".json")}");
+                Main.LogError(e.ToString());
+                ProfileData = new Dictionary<string, ProfileSaveData>();
+            }
+        }
+
         internal static void ApplyKeyboardBindings(ref InputActionMap inputActionMap)
         {
             foreach (KeyValuePair<string, InputAction> binding in Registered)
@@ -258,6 +428,12 @@ namespace ExtraBindings
             {
                 ActionStatesCache.Add(playerId, new PlayerActionState());
             }
+
+            if (!InputActionMapCache.ContainsKey(playerId))
+            {
+                InputActionMapCache.Add(playerId, inputActionMap);
+            }
+
             foreach (KeyValuePair<string, InputAction> kvp in Registered)
             {
                 switch (kvp.Value.InputType)

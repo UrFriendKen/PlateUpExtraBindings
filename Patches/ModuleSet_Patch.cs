@@ -27,7 +27,7 @@ namespace ExtraBindings.Patches
             return false;
         }
 
-        static void Move(ModuleSet instance, Vector2 direction)
+        static void Move(ModuleSet instance, Vector2 direction, bool is_looping = false)
         {
             ModuleInstance selected = instance.Selected;
             List<ModuleInstance> modules = instance.Modules;
@@ -36,6 +36,10 @@ namespace ExtraBindings.Patches
                 return;
             }
             Vector2 position = selected.Position;
+            if (is_looping)
+            {
+                position += -40f * direction;
+            }
             direction = direction.normalized;
             float closestDistance = 99f;
             float closestAngle = 0f;
@@ -45,7 +49,6 @@ namespace ExtraBindings.Patches
                 {
                     break;
                 }
-                
                 foreach (ModuleInstance module in modules)
                 {
                     if (module == selected || !module.Module.IsSelectable)
@@ -56,15 +59,14 @@ namespace ExtraBindings.Patches
                     Vector2 vector = position2 - position;
                     float magnitude = vector.magnitude;
                     float angleMatch = (vector.x * direction.x + vector.y * direction.y) / magnitude;
-                    float sqrMagnitude = vector.sqrMagnitude;
                     switch (i)
                     {
                         case 0:
                             if (angleMatch > 0.999999f && magnitude < 5f)
                             {
-                                if (angleMatch >= closestAngle && sqrMagnitude < closestDistance)
+                                if (angleMatch >= closestAngle && magnitude < closestDistance)
                                 {
-                                    closestDistance = sqrMagnitude;
+                                    closestDistance = magnitude;
                                     closestAngle = angleMatch;
                                     selected = module;
                                 }
@@ -73,9 +75,9 @@ namespace ExtraBindings.Patches
                         case 1:
                             if (angleMatch > 0f)
                             {
-                                if (sqrMagnitude < closestDistance)
+                                if (magnitude < closestDistance)
                                 {
-                                    closestDistance = sqrMagnitude;
+                                    closestDistance = magnitude;
                                     closestAngle = angleMatch;
                                     selected = module;
                                 }
@@ -83,10 +85,15 @@ namespace ExtraBindings.Patches
                             break;
                     }
                 }
-                Main.LogInfo($"Angle({i}): {closestAngle}");
-                Main.LogInfo($"Distance({i}): {closestDistance}");
             }
-            Selected.SetValue(instance, selected);
+            if (closestDistance > 98f && !is_looping)
+            {
+                Move(instance, direction, is_looping: true);
+            }
+            else
+            {
+                Selected.SetValue(instance, selected);
+            }
         }
     }
 }

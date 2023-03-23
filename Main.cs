@@ -1,16 +1,12 @@
-﻿using Controllers;
-using ExtraBindings.Menus;
-using JetBrains.Annotations;
+﻿using ExtraBindings.Menus;
 using Kitchen;
+using KitchenData;
 using KitchenLib;
 using KitchenLib.Event;
 using KitchenMods;
 using System;
-using System.Collections.Generic;
 using System.Reflection;
-using Unity.Entities.UniversalDelegates;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 // Namespace should have "Kitchen" in the beginning
 namespace ExtraBindings
@@ -36,26 +32,61 @@ namespace ExtraBindings
         public const bool DEBUG_MODE = false;
 #endif
 
-        public static AssetBundle Bundle;
-
         public Main() : base(MOD_GUID, MOD_NAME, MOD_AUTHOR, MOD_VERSION, MOD_GAMEVERSION, Assembly.GetExecutingAssembly()) { }
+
+        struct PlayersHashCache
+        {
+            int storedHash;
+
+            public PlayersHashCache()
+            {
+                storedHash = GetHashCode();
+            }
+
+            public override int GetHashCode()
+            {
+                int hash = 17;
+                if (Players.Main == null)
+                    return hash;
+
+                foreach (PlayerInfo player in Players.Main.All())
+                {
+                    hash = hash * 31 + player.ID.GetHashCode();
+                }
+                return hash;
+            }
+
+            public bool IsChanged(bool updateState = false)
+            {
+                int hash = GetHashCode();
+                if (hash != storedHash)
+                {
+                    if (updateState)
+                    {
+                        storedHash = hash;
+                    }
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        PlayersHashCache playersHashCache;
 
         protected override void OnInitialise()
         {
+            BindingsRegistry.LoadEnabledStates();
             LogWarning($"{MOD_GUID} v{MOD_VERSION} in use!");
-        }
-
-        private void AddGameData()
-        {
-            LogInfo("Attempting to register game data...");
-
-            // AddGameDataObject<MyCustomGDO>();
-
-            LogInfo("Done loading game data.");
+            playersHashCache = new PlayersHashCache();
         }
 
         protected override void OnUpdate()
         {
+            if (playersHashCache.IsChanged(true))
+            {
+                BindingsRegistry.LoadEnabledStates();
+            }
+
             //foreach (KeyValuePair<int, ButtonState> state in BindingsRegistry.GetButtonActionStates("CustomButtonAction0"))
             //{
             //    if (state.Value == ButtonState.Pressed || state.Value == ButtonState.Released)
@@ -70,15 +101,6 @@ namespace ExtraBindings
 
         protected override void OnPostActivate(KitchenMods.Mod mod)
         {
-            // TODO: Uncomment the following if you have an asset bundle.
-            // TODO: Also, make sure to set EnableAssetBundleDeploy to 'true' in your ModName.csproj
-
-            // LogInfo("Attempting to load asset bundle...");
-            // Bundle = mod.GetPacks<AssetBundleModPack>().SelectMany(e => e.AssetBundles).First();
-            // LogInfo("Done loading asset bundle.");
-
-            // Register custom GDOs
-            AddGameData();
             SetupMenus();
 
             // Perform actions when game data is built
@@ -111,14 +133,14 @@ namespace ExtraBindings
             //    .AddBinding(new KeyboardBinding(KeyboardBinding.Button.Alpha1, isAnalog: false))
             //    .AddBinding(new ControllerBinding(ControllerBinding.Button.DPadLeft, isAnalog: false));
 
-            //for (int i = 0; i < 81; i++)
-            //{
-            //    string key = $"CustomButtonAction{i}";
-            //    string displayText = $"Button{i}";
-            //    BindingsRegistry.AddButtonAction(key, displayText, BindingsRegistry.Category.Interaction)
-            //        .AddBinding(new KeyboardBinding(KeyboardBinding.Button.Alpha1, isAnalog: false))
-            //        .AddBinding(new ControllerBinding(ControllerBinding.Button.DPadLeft, isAnalog: false));
-            //}
+            for (int i = 0; i < 81; i++)
+            {
+                string key = $"CustomButtonAction{i}";
+                string displayText = $"Button{i}";
+                BindingsRegistry.AddButtonAction(key, displayText, BindingsRegistry.Category.Interaction)
+                    .AddBinding(new KeyboardBinding(KeyboardBinding.Button.Alpha1, isAnalog: false))
+                    .AddBinding(new ControllerBinding(ControllerBinding.Button.DPadLeft, isAnalog: false));
+            }
 
             //BindingsRegistry.AddValueAction("CustomValueAction", "Value", BindingsRegistry.Category.Movement)
             //    .AddBinding(new KeyboardBinding(KeyboardBinding.Composite.WASD, isAnalog: false))
@@ -132,19 +154,32 @@ namespace ExtraBindings
             {
                 args.addSubmenuButton.Invoke(args.instance, new object[3]
                 {
-                "Edit Controls",
-                typeof(ChangeControlsMenu<PauseMenuAction>),
-                false
+                    "Edit Controls",
+                    typeof(ControlsMenu<PauseMenuAction>),
+                    false
                 });
             });
             Events.PlayerPauseView_SetupMenusEvent = (EventHandler<PlayerPauseView_SetupMenusArgs>)Delegate.Combine(Events.PlayerPauseView_SetupMenusEvent, (EventHandler<PlayerPauseView_SetupMenusArgs>)delegate (object s, PlayerPauseView_SetupMenusArgs args)
             {
+                RebindMenu<PauseMenuAction> rebindMenu = new RebindMenu<PauseMenuAction>(args.instance.ButtonContainer, args.module_list);
                 args.addMenu.Invoke(args.instance, new object[2]
                 {
-                typeof(ChangeControlsMenu<PauseMenuAction>),
-                new ChangeControlsMenu<PauseMenuAction>(args.instance.ButtonContainer, args.module_list)
+                    typeof(ControlsMenu<PauseMenuAction>),
+                    new ControlsMenu<PauseMenuAction>(args.instance.ButtonContainer, args.module_list, rebindMenu)
+                });
+
+
+                args.addMenu.Invoke(args.instance, new object[2]
+                {
+                    typeof(RebindMenu<PauseMenuAction>),
+                    rebindMenu
                 });
             });
+            //Events.PreferenceMenu_PauseMenu_CreateSubmenusEvent += (s, args) =>
+            //{
+            //    args.Menus.Add(typeof(ChangeControlsMenu<PauseMenuAction>), new ChangeControlsMenu<PauseMenuAction>(args.Container, args.Module_list));
+            //};
+            //ModsPreferencesMenu<PauseMenuAction>.RegisterMenu(MOD_NAME, typeof(ChangeControlsMenu<PauseMenuAction>), typeof(PauseMenuAction));
         }
 
         #region Logging

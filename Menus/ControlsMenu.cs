@@ -7,12 +7,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
 using UnityEngine;
-using static ExtraBindings.Binding;
 using static ExtraBindings.BindingsRegistry;
 
 namespace ExtraBindings.Menus
 {
-    internal class ChangeControlsMenu<T> : KLMenu<T>
+    internal class ControlsMenu<T> : KLMenu<T>
     {
         private static readonly float columnWidth = 3.5f;
         private static readonly float rowHeight = 0.3f;
@@ -35,8 +34,11 @@ namespace ExtraBindings.Menus
         private Dictionary<Category, List<(string, string)>> VanillaControls;
         private Dictionary<Category, List<(string, string)>> CustomControls;
 
-        public ChangeControlsMenu(Transform container, ModuleList module_list) : base(container, module_list)
+        private RebindMenu<T> RebindMenu;
+
+        public ControlsMenu(Transform container, ModuleList module_list, RebindMenu<T> rebindMenu) : base(container, module_list)
         {
+            RebindMenu = rebindMenu;
             categories = Enum.GetValues(typeof(Category)).Cast<Category>().Where(x => x != Category.Null).ToList();
             categoriesStrings = Enum.GetNames(typeof(Category)).Where(x => x != Enum.GetName(typeof(Category), Category.Null)).ToList();
 
@@ -62,7 +64,7 @@ namespace ExtraBindings.Menus
 
         public override void Setup(int player_id)
         {
-            RegisterGlobalLocalisation();
+            BindingsRegistry.RegisterGlobalLocalisation();
 
             Dictionary<Category, List<string>> customControlActionKeys = GetActionKeysByCategory(includeDisallowedRebinds: false);
             foreach (Category category in categories)
@@ -172,7 +174,7 @@ namespace ExtraBindings.Menus
                     Vector2 position = new Vector2(
                         x: columnIndex * (columnWidth + horizontalPadding),
                         y: rowIndex * -(rowHeight + verticalPadding) + topControlYPosition);
-                    AddRemap(player_id, localisationKey, actionKey, position: position);
+                    AddRemapMenuButton(player_id, localisationKey, actionKey, position: position);
                 }
             }
         }
@@ -206,7 +208,7 @@ namespace ExtraBindings.Menus
             return selectElement;
         }
 
-        private RemapElement AddRemap(int player_id, string localisationKey, string actionKey, float scale = 1f, float padding = 0.2f, Vector2 position = default)
+        private RemapElement AddRemapMenuButton(int player_id, string localisationKey, string actionKey, float scale = 1f, float padding = 0.2f, Vector2 position = default, bool skip_stack = false)
         {
             RemapElement remapElement = New<RemapElement>(false);
             remapElement.Position = position;
@@ -216,7 +218,9 @@ namespace ExtraBindings.Menus
             remapElement.SetStyle(ElementStyle.RebindPrompt);
             remapElement.OnActivate += delegate
             {
-                StartRebind(player_id, localisationKey, actionKey, remapElement);
+                RebindMenu.SetAction(actionKey, localisationKey);
+                RequestSubMenu(typeof(RebindMenu<T>), skip_stack);
+                //StartRebind(player_id, localisationKey, actionKey, remapElement);
             };
             ModuleList.AddModule(remapElement, position);
             return remapElement;

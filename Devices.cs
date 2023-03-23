@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.ComponentModel;
 using UnityEngine.InputSystem;
 
 namespace ExtraBindings
@@ -21,7 +20,7 @@ namespace ExtraBindings
         public bool IsAnalog { get; set; } = false;
         public string Path { get; set; } = null;
 
-        public void ApplyTo(UnityEngine.InputSystem.InputAction inputAction)
+        internal void ApplyTo(UnityEngine.InputSystem.InputAction inputAction)
         {
             if (inputAction.type == InputActionType.Value)
             {

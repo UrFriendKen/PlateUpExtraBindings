@@ -36,58 +36,13 @@ namespace ExtraBindings
 
         public Main() : base(MOD_GUID, MOD_NAME, MOD_AUTHOR, MOD_VERSION, MOD_GAMEVERSION, Assembly.GetExecutingAssembly()) { }
 
-        struct PlayersHashCache
-        {
-            int storedHash;
-
-            public PlayersHashCache()
-            {
-                storedHash = GetHashCode();
-            }
-
-            public override int GetHashCode()
-            {
-                int hash = 17;
-                if (Players.Main == null)
-                    return hash;
-
-                foreach (PlayerInfo player in Players.Main.All())
-                {
-                    hash = hash * 31 + player.ID.GetHashCode();
-                }
-                return hash;
-            }
-
-            public bool IsChanged(bool updateState = false)
-            {
-                int hash = GetHashCode();
-                if (hash != storedHash)
-                {
-                    if (updateState)
-                    {
-                        storedHash = hash;
-                    }
-                    return true;
-                }
-                return false;
-            }
-        }
-
-        PlayersHashCache playersHashCache;
-
         protected override void OnInitialise()
         {
             LogWarning($"{MOD_GUID} v{MOD_VERSION} in use!");
-            playersHashCache = new PlayersHashCache();
         }
 
         protected override void OnUpdate()
         {
-            if (playersHashCache.IsChanged(true))
-            {
-                BindingsRegistry.LoadEnabledStates();
-            }
-
             foreach (KeyValuePair<int, ButtonState> state in BindingsRegistry.GetButtonActionStates("CustomButtonAction0"))
             {
                 if (state.Value == ButtonState.Pressed || state.Value == ButtonState.Released)
@@ -129,7 +84,7 @@ namespace ExtraBindings
             //    .AddBinding(new KeyboardBinding(KeyboardBinding.Button.Alpha1, isAnalog: false))
             //    .AddBinding(new ControllerBinding(ControllerBinding.Button.DPadLeft, isAnalog: false));
 
-            for (int i = 0; i < 81; i++)
+            for (int i = 0; i < 5; i++)
             {
                 string key = $"CustomButtonAction{i}";
                 string displayText = $"Button{i}";

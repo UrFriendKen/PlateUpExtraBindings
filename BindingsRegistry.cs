@@ -25,6 +25,43 @@ namespace ExtraBindings
             Menus
         }
 
+        struct PlayersHashCache
+        {
+            int storedHash;
+
+            public PlayersHashCache()
+            {
+                storedHash = GetHashCode();
+            }
+
+            public override int GetHashCode()
+            {
+                int hash = 17;
+                if (Players.Main == null)
+                    return hash;
+
+                foreach (PlayerInfo player in Players.Main.All())
+                {
+                    hash = hash * 31 + player.ID.GetHashCode();
+                }
+                return hash;
+            }
+
+            public bool IsChanged(bool updateState = false)
+            {
+                int hash = GetHashCode();
+                if (hash != storedHash)
+                {
+                    if (updateState)
+                    {
+                        storedHash = hash;
+                    }
+                    return true;
+                }
+                return false;
+            }
+        }
+
         public class PlayerActionState
         {
             public Dictionary<string, Vector2> ValueActionStates { get; } = new Dictionary<string, Vector2>();
@@ -93,6 +130,7 @@ namespace ExtraBindings
 
         static bool isInit = false;
 
+        static PlayersHashCache playersHashCache;
 
         const string SAVE_FOLDER = "ExtraBindings";
         const string SAVE_FILENAME = "ExtraBindings_SaveData";
@@ -103,6 +141,7 @@ namespace ExtraBindings
             if (!isInit)
             {
                 isInit = true;
+                playersHashCache = new PlayersHashCache();
                 ActionKeysByCategory = new Dictionary<Category, List<string>>();
                 foreach (Category cat in Enum.GetValues(typeof(Category)).Cast<Category>())
                 {
@@ -289,9 +328,9 @@ namespace ExtraBindings
                 if (!GameData.Main.GlobalLocalisation.Text.ContainsKey(kvp.Key))
                 {
                     GameData.Main.GlobalLocalisation.Text.Add(kvp.Key, kvp.Value.Name);
-                    Main.LogInfo($"Registered localisation for {kvp.Key}");
                 }
             }
+            Main.LogInfo($"Registered Global Localisation for controls");
         }
 
         internal static void AddActionsToMap(ref InputActionMap inputActionMap)
@@ -435,6 +474,11 @@ namespace ExtraBindings
 
         internal static void UpdateActionStates(int playerId, InputActionMap inputActionMap)
         {
+            if (playersHashCache.IsChanged(true))
+            {
+                LoadEnabledStates();
+            }
+
             if (!ActionStatesCache.ContainsKey(playerId))
             {
                 ActionStatesCache.Add(playerId, new PlayerActionState());

@@ -296,7 +296,7 @@ namespace ExtraBindings
         public InputActionType InputType;
         public BindingsRegistry.Category Category;
         public bool AllowRebind;
-        List<Binding> Bindings;
+        Dictionary<PeripheralType, Binding> Bindings;
 
         static readonly Dictionary<PeripheralType, Binding> DefaultCompositeBinding = new Dictionary<PeripheralType, Binding>()
         {
@@ -323,19 +323,28 @@ namespace ExtraBindings
             Name = name;
             InputType = inputType;
             Category = category;
-            Bindings = new List<Binding>();
+            Bindings = new Dictionary<PeripheralType, Binding>();
             AllowRebind = allowRebind;
         }
 
         public InputAction AddBinding(Binding binding)
         {
-            Bindings.Add(binding);
+            if (!Bindings.ContainsKey(binding.Device))
+            {
+                Bindings.Add(binding.Device, binding);
+                Main.LogInfo($"Adding {binding.Device} binding for {ID}");
+            }
+            else
+            {
+                Bindings[binding.Device] = binding;
+                Main.LogWarning($"Overwriting {binding.Device} binding for {ID}");
+            }
             return this;
         }
 
         internal void ApplyBindings(in UnityEngine.InputSystem.InputAction action, PeripheralType device)
         {
-            foreach (Binding binding in Bindings)
+            foreach (Binding binding in Bindings.Values)
             {
                 if (device == binding.Device)
                 {

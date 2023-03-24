@@ -1,10 +1,12 @@
-﻿using ExtraBindings.Menus;
+﻿using Controllers;
+using ExtraBindings.Menus;
 using Kitchen;
 using KitchenData;
 using KitchenLib;
 using KitchenLib.Event;
 using KitchenMods;
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
@@ -75,7 +77,6 @@ namespace ExtraBindings
 
         protected override void OnInitialise()
         {
-            BindingsRegistry.LoadEnabledStates();
             LogWarning($"{MOD_GUID} v{MOD_VERSION} in use!");
             playersHashCache = new PlayersHashCache();
         }
@@ -87,16 +88,11 @@ namespace ExtraBindings
                 BindingsRegistry.LoadEnabledStates();
             }
 
-            //foreach (KeyValuePair<int, ButtonState> state in BindingsRegistry.GetButtonActionStates("CustomButtonAction0"))
-            //{
-            //    if (state.Value == ButtonState.Pressed || state.Value == ButtonState.Released)
-            //        Main.LogInfo($"{state.Key}: \"CustomButtonAction0\" {state.Value}");
-            //}
-            //foreach (KeyValuePair<int, ButtonState> state in BindingsRegistry.GetButtonActionStates("CustomButtonAction1"))
-            //{
-            //    if (state.Value == ButtonState.Pressed || state.Value == ButtonState.Released)
-            //        Main.LogInfo($"{state.Key}: \"CustomButtonAction1\" {state.Value}");
-            //}
+            foreach (KeyValuePair<int, ButtonState> state in BindingsRegistry.GetButtonActionStates("CustomButtonAction0"))
+            {
+                if (state.Value == ButtonState.Pressed || state.Value == ButtonState.Released)
+                    Main.LogInfo($"{state.Key}: \"CustomButtonAction0\" {state.Value}");
+            }
         }
 
         protected override void OnPostActivate(KitchenMods.Mod mod)
@@ -137,9 +133,9 @@ namespace ExtraBindings
             {
                 string key = $"CustomButtonAction{i}";
                 string displayText = $"Button{i}";
-                BindingsRegistry.AddButtonAction(key, displayText, BindingsRegistry.Category.Interaction)
-                    .AddBinding(new KeyboardBinding(KeyboardBinding.Button.Alpha1, isAnalog: false))
-                    .AddBinding(new ControllerBinding(ControllerBinding.Button.DPadLeft, isAnalog: false));
+                BindingsRegistry.AddButtonAction(key, displayText, BindingsRegistry.Category.Interaction);
+                    //.AddBinding(new KeyboardBinding(KeyboardBinding.Button.Alpha1, isAnalog: false))
+                    //.AddBinding(new ControllerBinding(ControllerBinding.Button.DPadLeft, isAnalog: false));
             }
 
             //BindingsRegistry.AddValueAction("CustomValueAction", "Value", BindingsRegistry.Category.Movement)

@@ -1,5 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using Controllers;
+using System;
+using System.Collections.Generic;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
 
 namespace ExtraBindings
 {
@@ -295,6 +298,25 @@ namespace ExtraBindings
         public bool AllowRebind;
         List<Binding> Bindings;
 
+        static readonly Dictionary<PeripheralType, Binding> DefaultCompositeBinding = new Dictionary<PeripheralType, Binding>()
+        {
+            { PeripheralType.Keyboard, new KeyboardBinding(KeyboardBinding.Composite.WASD) },
+            { PeripheralType.Controller, new ControllerBinding(ControllerBinding.Composite.LeftStick) }
+        };
+
+        static readonly Dictionary<PeripheralType, Binding> DefaultBinding = new Dictionary<PeripheralType, Binding>()
+        {
+            { PeripheralType.Keyboard, new KeyboardBinding(KeyboardBinding.Button.A) },
+            { PeripheralType.Controller, new ControllerBinding(ControllerBinding.Button.A) }
+        };
+
+        static readonly Dictionary<ControllerType, PeripheralType> ControllerTypeMapping = new Dictionary<ControllerType, PeripheralType>()
+        {
+            { ControllerType.Keyboard, PeripheralType.Keyboard },
+            { ControllerType.Playstation, PeripheralType.Controller },
+            { ControllerType.Xbox, PeripheralType.Controller }
+        };
+
         public InputAction(string id, string name, BindingsRegistry.Category category, InputActionType inputType, bool allowRebind)
         {
             ID = id;
@@ -320,6 +342,23 @@ namespace ExtraBindings
                     binding.ApplyTo(action);
                 }
             }
+        }
+
+        public static void ApplyDefaultBinding(in UnityEngine.InputSystem.InputAction action, PeripheralType device)
+        {
+            if (action.type == InputActionType.Value)
+            {
+                DefaultCompositeBinding[device].ApplyTo(action);
+            }
+            else
+            {
+                DefaultBinding[device].ApplyTo(action);
+            }
+        }
+
+        public static void ApplyDefaultBinding(in UnityEngine.InputSystem.InputAction action, ControllerType device)
+        {
+            ApplyDefaultBinding(action, ControllerTypeMapping[device]);
         }
     }
 }

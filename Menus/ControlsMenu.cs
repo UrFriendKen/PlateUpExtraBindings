@@ -5,7 +5,6 @@ using KitchenLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Collections;
 using UnityEngine;
 using static ExtraBindings.BindingsRegistry;
 
@@ -155,9 +154,9 @@ namespace ExtraBindings.Menus
 
             if (category != Category.Null)
             {
-
                 List<(string, string)> allControls = new List<(string, string)>();
 
+                int vanillaControlsCount = VanillaControls[category].Count;
                 allControls.AddRange(VanillaControls[category]);
                 allControls.AddRange(CustomControls[category].OrderBy(x => x.Item2));
 
@@ -174,7 +173,8 @@ namespace ExtraBindings.Menus
                     Vector2 position = new Vector2(
                         x: columnIndex * (columnWidth + horizontalPadding),
                         y: rowIndex * -(rowHeight + verticalPadding) + topControlYPosition);
-                    AddRemapMenuButton(player_id, localisationKey, actionKey, position: position);
+                    bool isVanilla = startIndex + i < vanillaControlsCount;
+                    AddRemapMenuButton(player_id, localisationKey, actionKey, canBeUnbound: !isVanilla, position: position);
                 }
             }
         }
@@ -208,7 +208,7 @@ namespace ExtraBindings.Menus
             return selectElement;
         }
 
-        private RemapElement AddRemapMenuButton(int player_id, string localisationKey, string actionKey, float scale = 1f, float padding = 0.2f, Vector2 position = default, bool skip_stack = false)
+        private RemapElement AddRemapMenuButton(int player_id, string localisationKey, string actionKey, bool canBeUnbound = false, float scale = 1f, float padding = 0.2f, Vector2 position = default, bool skip_stack = false)
         {
             RemapElement remapElement = New<RemapElement>(false);
             remapElement.Position = position;
@@ -218,43 +218,11 @@ namespace ExtraBindings.Menus
             remapElement.SetStyle(ElementStyle.RebindPrompt);
             remapElement.OnActivate += delegate
             {
-                RebindMenu.SetAction(actionKey, localisationKey);
+                RebindMenu.SetAction(actionKey, localisationKey, canBeUnbound);
                 RequestSubMenu(typeof(RebindMenu<T>), skip_stack);
-                //StartRebind(player_id, localisationKey, actionKey, remapElement);
             };
             ModuleList.AddModule(remapElement, position);
             return remapElement;
-        }
-
-        private void StartRebind(int player_id, string localisationKey, string actionKey, RemapElement remapElement)
-        {
-            remapElement.SetLabel(Localisation["REBIND_NOW"]);
-            TriggerRebind(player_id, localisationKey, actionKey, remapElement);
-        }
-
-        private void EndRebind(string localisationKey, RemapElement remapElement)
-        {
-            remapElement.SetLabel(Localisation[localisationKey]);
-        }
-
-        private void TriggerRebind(int player_id, string localisationKey, string actionKey, RemapElement remapElement)
-        {
-            InputSourceIdentifier.DefaultInputSource.RequestRebinding(player_id, actionKey, delegate (RebindResult result)
-            {
-                switch (result)
-                {
-                    case RebindResult.RejectedInUse:
-                        remapElement.SetLabel(Localisation["REBIND_IN_USE"]);
-                        return;
-                    case RebindResult.Fail:
-                        TriggerRebind(player_id, localisationKey, actionKey, remapElement);
-                        return;
-                    case RebindResult.Success:
-                        ProfileManager.Main.Save();
-                        break;
-                }
-                EndRebind(localisationKey, remapElement);
-            });
         }
     }
 }

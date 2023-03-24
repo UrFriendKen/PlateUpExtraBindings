@@ -37,6 +37,7 @@ namespace ExtraBindings.Patches
         [HarmonyPrefix]
         public static bool PerformRebinding(InputDevice device, UnityEngine.InputSystem.InputAction action, Action<RebindResult> callback)
         {
+            bool wasEnabled = action.enabled;
             Main.LogError("INTERACTIVE REBINDING");
             action.Disable();
             InputActionRebindingExtensions.RebindingOperation rebinding = action.PerformInteractiveRebinding();
@@ -94,7 +95,7 @@ namespace ExtraBindings.Patches
                 Main.LogError($"REBIND COMPLETED {ro.selectedControl} / {ro.action.bindings[0].overridePath}");
                 callback(RebindResult.Success);
                 rebinding.Dispose();
-                action.Enable();
+                BindingsRegistry.ActionEnabled(action, true);
             });
             rebinding.OnCancel(delegate (InputActionRebindingExtensions.RebindingOperation ro)
             {
@@ -108,7 +109,7 @@ namespace ExtraBindings.Patches
                     callback(RebindResult.Fail);
                 }
                 rebinding.Dispose();
-                action.Enable();
+                BindingsRegistry.ActionEnabled(action, wasEnabled);
             });
             rebinding.Start();
             static string fix_unity_path(string path)

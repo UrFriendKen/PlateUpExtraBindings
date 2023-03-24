@@ -11,6 +11,7 @@ namespace ExtraBindings.Menus
         int PlayerID;
         string Action;
         string LocalisationKey;
+        bool CanBeUnbound;
 
         public RebindMenu(Transform container, ModuleList module_list) : base(container, module_list)
         {
@@ -22,11 +23,14 @@ namespace ExtraBindings.Menus
 
             AddLabel("Rebind Control");
             RemapElement remap = AddRemap(PlayerID, Action, LocalisationKey);
-            AddButton("Unbind", delegate
+            if (CanBeUnbound)
             {
-                BindingsRegistry.ActionEnabled(PlayerID, Action, false);
-                remap.SetButton(PlayerID, Action);
-            });
+                AddButton("Unbind", delegate
+                {
+                    BindingsRegistry.ActionEnabled(PlayerID, Action, false);
+                    remap.SetButton(PlayerID, Action);
+                });
+            }
             New<SpacerElement>();
             New<SpacerElement>();
             AddButton(base.Localisation["MENU_BACK_SETTINGS"], delegate
@@ -35,10 +39,11 @@ namespace ExtraBindings.Menus
             });
         }
 
-        public void SetAction(string actionKey, string localisationKey)
+        public void SetAction(string actionKey, string localisationKey, bool canBeUnbound)
         {
             Action = actionKey;
             LocalisationKey = localisationKey;
+            CanBeUnbound = canBeUnbound;
         }
 
         private RemapElement AddRemap(int playerId, string actionKey, string localisationKey, float scale = 1f, float padding = 0.2f)
@@ -64,9 +69,10 @@ namespace ExtraBindings.Menus
             TriggerRebind(player_id, localisationKey, actionKey, remapElement);
         }
 
-        private void EndRebind(string localisationKey, RemapElement remapElement)
+        private void EndRebind(int player_id, string localisationKey, string actionKey, RemapElement remapElement)
         {
             remapElement.SetLabel(Localisation[localisationKey]);
+            //remapElement.SetButton(player_id, actionKey);
         }
 
         private void TriggerRebind(int player_id, string localisationKey, string actionKey, RemapElement remapElement)
@@ -75,10 +81,6 @@ namespace ExtraBindings.Menus
             {
                 switch (result)
                 {
-                    case RebindResult.Null:
-                    case RebindResult.Cancelled:
-                        BindingsRegistry.ActionEnabled(player_id, actionKey, BindingsRegistry.ActionEnabled(player_id, actionKey));
-                        break;
                     case RebindResult.RejectedInUse:
                         remapElement.SetLabel(Localisation["REBIND_IN_USE"]);
                         return;
@@ -86,12 +88,13 @@ namespace ExtraBindings.Menus
                         TriggerRebind(player_id, localisationKey, actionKey, remapElement);
                         return;
                     case RebindResult.Success:
-                        remapElement.SetButton(player_id, actionKey);
-                        BindingsRegistry.ActionEnabled(PlayerID, Action, true);
+                        //BindingsRegistry.ActionEnabled(player_id, actionKey, true);
+                        Main.LogError("Rebind Success");
                         ProfileManager.Main.Save();
+                        BindingsRegistry.SaveProfileData();
                         break;
                 }
-                EndRebind(localisationKey, remapElement);
+                EndRebind(player_id, localisationKey, actionKey, remapElement);
             });
         }
     }

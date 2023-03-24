@@ -1,5 +1,6 @@
 ﻿using Controllers;
 using HarmonyLib;
+using Kitchen;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -32,6 +33,24 @@ namespace ExtraBindings.Patches
                     }
                 }
                 BindingsRegistry.SetAllActionStatesNeutral(current);
+            }
+        }
+
+
+        [HarmonyPatch(typeof(InputSource), "NewDeviceUsed")]
+        [HarmonyPostfix]
+        static void NewDeviceUsed_Postfix(ref Dictionary<int, PlayerData> ___Players)
+        {
+            foreach (PlayerData player in ___Players.Values)
+            {
+                foreach (UnityEngine.InputSystem.InputAction action in player.InputData.Map.actions)
+                {
+                    if (action.bindings.Count == 0)
+                    {
+                        BindingsRegistry.ActionEnabled(action, false, doNotSave: true);
+                        InputAction.ApplyDefaultBinding(action, player.ControllerType);
+                    }
+                }
             }
         }
     }

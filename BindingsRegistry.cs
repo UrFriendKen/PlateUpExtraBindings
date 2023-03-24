@@ -2,6 +2,7 @@
 using Kitchen;
 using Kitchen.Modules;
 using KitchenData;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -58,6 +59,7 @@ namespace ExtraBindings
             }
         }
 
+        [Serializable]
         private struct ProfileSaveData
         {
             public string ProfileName { get; private set; }
@@ -208,7 +210,7 @@ namespace ExtraBindings
             return (ButtonState)GetPlayerActionState(playerId, action, InputActionType.Button);
         }
 
-        public static bool ActionEnabled(int playerId, string action, bool? enabled = null)
+        public static bool ActionEnabled(int playerId, string action, bool? enabled = null, bool doNotSave = false)
         {
             if (!InputActionMapCache.ContainsKey(playerId))
             {
@@ -217,20 +219,26 @@ namespace ExtraBindings
             }
 
             UnityEngine.InputSystem.InputAction inputAction = InputActionMapCache[playerId].FindAction(action);
+            return ActionEnabled(inputAction, enabled, doNotSave);
+        }
+
+        public static bool ActionEnabled(UnityEngine.InputSystem.InputAction action, bool? enabled = null, bool doNotSave = false)
+        {
             if (enabled.HasValue)
             {
                 switch (enabled.Value)
                 {
                     case true:
-                        inputAction.Enable();
+                        action.Enable();
                         break;
                     case false:
-                        inputAction.Disable();
+                        action.Disable();
                         break;
                 }
-                SaveProfileData();
+                if (!doNotSave)
+                    SaveProfileData();
             }
-            return inputAction.enabled;
+            return action.enabled;
         }
 
         private static object GetPlayerActionState(int playerId, string action, InputActionType actionType)
@@ -296,6 +304,9 @@ namespace ExtraBindings
 
         internal static void SaveProfileData()
         {
+            if (Players.Main == null)
+                return;
+
             foreach (PlayerInfo player in Players.Main.All())
             {
                 PlayerProfile profile = player.Profile;
@@ -373,7 +384,7 @@ namespace ExtraBindings
         private static void WriteProfileData(string folder, string filename)
         {
             StringBuilder sb = new StringBuilder();
-            sb.Append(JsonUtility.ToJson(ProfileData, prettyPrint: true));
+            sb.Append(JsonConvert.SerializeObject(ProfileData, Formatting.Indented));
 
             string fullSaveFolderPath = Path.Combine(Application.persistentDataPath, folder);
             if (!Directory.Exists(fullSaveFolderPath))
@@ -396,7 +407,7 @@ namespace ExtraBindings
 
             try
             {
-                ProfileData = JsonUtility.FromJson<Dictionary<string, ProfileSaveData>>(File.ReadAllText(Path.Combine(fullSaveFolderPath, filename + ".json")));
+                ProfileData = JsonConvert.DeserializeObject<Dictionary<string, ProfileSaveData>>(File.ReadAllText(Path.Combine(fullSaveFolderPath, filename + ".json")));
             }
             catch (Exception e)
             {

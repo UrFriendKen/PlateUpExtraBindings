@@ -7,8 +7,10 @@ using UnityEngine.InputSystem;
 namespace ExtraBindings.Patches
 {
     [HarmonyPatch]
-    static class Maps_Patch
+    internal static class Maps_Patch
     {
+        public static HashSet<string> RejectedPaths = new HashSet<string>();
+
         [HarmonyPatch(typeof(Maps), "Actions")]
         [HarmonyPostfix]
         static void Actions_Postfix(ref InputActionMap __result)
@@ -21,7 +23,12 @@ namespace ExtraBindings.Patches
         [HarmonyPostfix]
         static void NewGamepad_Postfix(ref InputActionMap __result)
         {
+            __result.FindAction(Controls.Movement).RemoveAction();
+            __result.AddAction(Controls.Movement);
+            InputAction.ApplyDefaultBinding(__result.FindAction(Controls.Movement), PeripheralType.Controller);
+
             BindingsRegistry.ApplyGamepadBindings(ref __result);
+
         }
 
 
@@ -45,14 +52,16 @@ namespace ExtraBindings.Patches
             HashSet<string> exclude_paths = new HashSet<string>();
             cancel_paths.Add(fix_unity_path(action.actionMap.FindAction(Controls.MenuTrigger).bindings[0].effectivePath));
             exclude_paths.Add(fix_unity_path(action.actionMap.FindAction(Controls.MenuTrigger).bindings[0].effectivePath));
-            foreach (string gameplayControl in Controls.GameplayControls)
+            foreach (string gameplayControl in new List<string> { Controls.Movement })
             {
                 if (!(gameplayControl != action.name))
                 {
                     continue;
                 }
+                int i = 0;
                 foreach (InputBinding binding in action.actionMap.FindAction(gameplayControl).bindings)
                 {
+                    Main.LogInfo(i++);
                     exclude_paths.Add(fix_unity_path(binding.effectivePath));
                 }
             }
@@ -70,9 +79,8 @@ namespace ExtraBindings.Patches
                     }
                     if (exclude_paths.Contains(item))
                     {
-                        rebinding.Complete();
-                        //callback(RebindResult.RejectedInUse);
-                        //ro.RemoveCandidate(inputControl);
+                        callback(RebindResult.RejectedInUse);
+                        ro.RemoveCandidate(inputControl);
                     }
                     else
                     {

@@ -1,6 +1,5 @@
 ﻿using Controllers;
 using HarmonyLib;
-using Kitchen;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -28,7 +27,7 @@ namespace ExtraBindings.Patches
                     ReadOnlyArray<InputDevice>? devices = inputData.Map.devices;
                     if (devices.HasValue && devices.GetValueOrDefault().Count > 0)
                     {
-                        BindingsRegistry.UpdateActionStates(current, inputData.Map);
+                        BindingsRegistry.UpdateActionStates(current, playerData.ControllerType, inputData.Map);
                         continue;
                     }
                 }

@@ -1,6 +1,5 @@
 ﻿using Controllers;
 using Kitchen;
-using Kitchen.Modules;
 using KitchenData;
 using Newtonsoft.Json;
 using System;
@@ -101,30 +100,42 @@ namespace ExtraBindings
         {
             public string ProfileName { get; private set; }
 
-            public Dictionary<string, bool> EnabledStates;
+            public Dictionary<PeripheralType, Dictionary<string, bool>> EnabledStates;
 
             public ProfileSaveData(string profileName)
             {
                 ProfileName = profileName;
-                EnabledStates = new Dictionary<string, bool>();
+                EnabledStates = new Dictionary<PeripheralType, Dictionary<string, bool>>();
             }
 
-            public void Set(string actionKey, bool value)
+            public void Set(PeripheralType peripheralType, string actionKey, bool value)
             {
-                if (!EnabledStates.ContainsKey(actionKey))
+                if (!EnabledStates.ContainsKey(peripheralType))
                 {
-                    EnabledStates.Add(actionKey, value);
+                    EnabledStates.Add(peripheralType, new Dictionary<string, bool>());
+                }
+
+                if (!EnabledStates[peripheralType].ContainsKey(actionKey))
+                {
+                    EnabledStates[peripheralType].Add(actionKey, value);
                     return;
                 }
-                EnabledStates[actionKey] = value;
+                EnabledStates[peripheralType][actionKey] = value;
             }
         }
+
+        static Dictionary<string, string> VanillaAdditionalLocalisations => new Dictionary<string, string>
+        {
+            { "REBIND_MOVEMENT", "Move" }
+        };
 
         static Dictionary<string, InputAction> Registered = new Dictionary<string, InputAction>();
 
         static Dictionary<int, PlayerActionState> ActionStatesCache = new Dictionary<int, PlayerActionState>();
 
         static Dictionary<int, InputActionMap> InputActionMapCache = new Dictionary<int, InputActionMap>();
+
+        static Dictionary<int, PeripheralType> PlayerDeviceCache = new Dictionary<int, PeripheralType>();
 
         private static Dictionary<Category, List<string>> ActionKeysByCategory;
 
@@ -308,29 +319,31 @@ namespace ExtraBindings
             return ReadActionState(playerId, action, actionType);
         }
 
-
-        internal static void AddRebindOptions(ControlRebindElement instance)
-        {
-            foreach (KeyValuePair<string, InputAction> kvp in Registered)
-            {
-                if (kvp.Value.AllowRebind)
-                {
-                    instance.AddRebindOption(kvp.Key, kvp.Key);
-                }
-            }
-        }
-
         internal static void RegisterGlobalLocalisation()
         {
             Init();
+            
+            bool performed = false;
+            foreach (KeyValuePair<string, string> kvp in VanillaAdditionalLocalisations)
+            {
+                if (!GameData.Main.GlobalLocalisation.Text.ContainsKey(kvp.Key))
+                {
+                    GameData.Main.GlobalLocalisation.Text.Add(kvp.Key, kvp.Value);
+                    performed = true;
+                }
+            }
+
             foreach (KeyValuePair<string, InputAction> kvp in Registered)
             {
                 if (!GameData.Main.GlobalLocalisation.Text.ContainsKey(kvp.Key))
                 {
                     GameData.Main.GlobalLocalisation.Text.Add(kvp.Key, kvp.Value.Name);
+                    performed = true;
                 }
             }
-            Main.LogInfo($"Registered Global Localisation for controls");
+
+            if (performed)
+                Main.LogInfo($"Registered Global Localisation for controls");
         }
 
         internal static void AddActionsToMap(ref InputActionMap inputActionMap)
@@ -358,6 +371,12 @@ namespace ExtraBindings
                     continue;
                 }
 
+                if (!PlayerDeviceCache.TryGetValue(player.ID, out PeripheralType peripheralType))
+                {
+                    Main.LogError($"Could not peripheral type for {player.ID}");
+                    continue;
+                }
+
                 if (!ProfileData.ContainsKey(profile.Name))
                 {
                     ProfileData.Add(profile.Name, new ProfileSaveData(profile.Name));
@@ -365,7 +384,7 @@ namespace ExtraBindings
 
                 foreach (KeyValuePair<string, InputAction> action in Registered)
                 {
-                    ProfileData[profile.Name].Set(action.Key, ActionEnabled(player.ID, action.Value.ID));
+                    ProfileData[profile.Name].Set(peripheralType, action.Key, ActionEnabled(player.ID, action.Value.ID));
                 }
             }
             PruneDeletedProfiles();
@@ -398,13 +417,22 @@ namespace ExtraBindings
                     continue;
                 }
 
+                if (!PlayerDeviceCache.TryGetValue(player.ID, out PeripheralType peripheralType))
+                {
+                    Main.LogError($"Could not peripheral type for {player.ID}");
+                    continue;
+                }
+
                 foreach (string actionKey in Registered.Keys)
                 {
                     UnityEngine.InputSystem.InputAction inputAction = map.FindAction(actionKey);
                     if (inputAction == null)
                         continue;
 
-                    if (!data.EnabledStates.TryGetValue(actionKey, out bool enabled))
+                    if (!data.EnabledStates.TryGetValue(peripheralType, out Dictionary<string, bool> deviceDict))
+                        continue;
+
+                    if (deviceDict.TryGetValue(actionKey, out bool enabled))
                         continue;
 
                     switch (enabled)
@@ -472,13 +500,8 @@ namespace ExtraBindings
             }
         }
 
-        internal static void UpdateActionStates(int playerId, InputActionMap inputActionMap)
+        internal static void UpdateActionStates(int playerId, ControllerType controllerType, InputActionMap inputActionMap)
         {
-            if (playersHashCache.IsChanged(true))
-            {
-                LoadEnabledStates();
-            }
-
             if (!ActionStatesCache.ContainsKey(playerId))
             {
                 ActionStatesCache.Add(playerId, new PlayerActionState());
@@ -487,6 +510,17 @@ namespace ExtraBindings
             if (!InputActionMapCache.ContainsKey(playerId))
             {
                 InputActionMapCache.Add(playerId, inputActionMap);
+            }
+
+            if (!PlayerDeviceCache.ContainsKey(playerId))
+            {
+                PlayerDeviceCache.Add(playerId, PeripheralType.Controller);
+            }
+            PlayerDeviceCache[playerId] = InputAction.ControllerTypeMapping[controllerType];
+
+            if (playersHashCache.IsChanged(true))
+            {
+                LoadEnabledStates();
             }
 
             foreach (KeyValuePair<string, InputAction> kvp in Registered)

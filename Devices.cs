@@ -310,7 +310,7 @@ namespace ExtraBindings
             { PeripheralType.Controller, new ControllerBinding(ControllerBinding.Button.A) }
         };
 
-        static readonly Dictionary<ControllerType, PeripheralType> ControllerTypeMapping = new Dictionary<ControllerType, PeripheralType>()
+        public static Dictionary<ControllerType, PeripheralType> ControllerTypeMapping => new Dictionary<ControllerType, PeripheralType>()
         {
             { ControllerType.Keyboard, PeripheralType.Keyboard },
             { ControllerType.Playstation, PeripheralType.Controller },

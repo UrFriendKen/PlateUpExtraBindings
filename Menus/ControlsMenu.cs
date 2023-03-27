@@ -1,6 +1,7 @@
 ﻿using Controllers;
 using Kitchen;
 using Kitchen.Modules;
+using KitchenData;
 using KitchenLib;
 using System;
 using System.Collections.Generic;
@@ -50,6 +51,7 @@ namespace ExtraBindings.Menus
             }
 
             VanillaControls[Category.Movement] = new List<(string, string)> {
+                ("REBIND_MOVEMENT", Controls.Movement),
                 ("REBIND_HOLD_POSITION", Controls.StopMoving)
             };
 

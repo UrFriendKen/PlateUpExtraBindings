@@ -1,7 +1,6 @@
 ﻿using Controllers;
 using ExtraBindings.Menus;
 using Kitchen;
-using KitchenData;
 using KitchenLib;
 using KitchenLib.Event;
 using KitchenMods;

@@ -9,6 +9,7 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Utilities;
 
 namespace ExtraBindings
 {
@@ -432,7 +433,7 @@ namespace ExtraBindings
                     if (!data.EnabledStates.TryGetValue(peripheralType, out Dictionary<string, bool> deviceDict))
                         continue;
 
-                    if (deviceDict.TryGetValue(actionKey, out bool enabled))
+                    if (!deviceDict.TryGetValue(actionKey, out bool enabled))
                         continue;
 
                     switch (enabled)

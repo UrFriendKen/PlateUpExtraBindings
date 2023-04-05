@@ -35,6 +35,9 @@
 	  <None Remove="plateup_mod_metadata.json" />
 	  <None Remove="*.png" />
 	</ItemGroup>
+	<ItemGroup>
+	  <Compile Remove="Patches\ProfileManager_Postfix.cs" />
+	</ItemGroup>
   
 	<ItemGroup>
 		<PackageReference Include="MessagePack.Annotations" Version="2.4.59" />

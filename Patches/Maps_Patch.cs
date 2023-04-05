@@ -39,6 +39,7 @@ namespace ExtraBindings.Patches
             BindingsRegistry.ApplyKeyboardBindings(ref __result);
         }
 
+        internal static int targetIndex = -1;
 
         [HarmonyPatch(typeof(Maps), "PerformRebinding", new Type[] { typeof(InputDevice), typeof(UnityEngine.InputSystem.InputAction), typeof(Action<RebindResult>) })]
         [HarmonyPrefix]
@@ -47,7 +48,13 @@ namespace ExtraBindings.Patches
             bool wasEnabled = action.enabled;
             Main.LogError("INTERACTIVE REBINDING");
             action.Disable();
+
             InputActionRebindingExtensions.RebindingOperation rebinding = action.PerformInteractiveRebinding();
+            if (targetIndex > -1)
+            {
+                rebinding.WithTargetBinding(targetIndex);
+            }
+
             HashSet<string> cancel_paths = new HashSet<string>();
             HashSet<string> exclude_paths = new HashSet<string>();
             cancel_paths.Add(fix_unity_path(action.actionMap.FindAction(Controls.MenuTrigger).bindings[0].effectivePath));
@@ -58,10 +65,8 @@ namespace ExtraBindings.Patches
                 {
                     continue;
                 }
-                int i = 0;
                 foreach (InputBinding binding in action.actionMap.FindAction(gameplayControl).bindings)
                 {
-                    Main.LogInfo(i++);
                     exclude_paths.Add(fix_unity_path(binding.effectivePath));
                 }
             }

@@ -469,8 +469,9 @@ namespace ExtraBindings
             string fullSaveFilePath = Path.Combine(fullSaveFolderPath, filename + ".json");
             if (!Directory.Exists(fullSaveFolderPath) || !File.Exists(fullSaveFilePath))
             {
-                Main.LogWarning($"Save file does not exist, skipping. {Path.Combine(fullSaveFolderPath, filename + ".json")}");
+                Main.LogWarning($"Save file does not exist, skipping. {fullSaveFilePath}");
                 ProfileData = new Dictionary<string, ProfileSaveData>();
+                return;
             }
 
             try

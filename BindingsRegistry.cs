@@ -101,15 +101,15 @@ namespace ExtraBindings
         {
             public string ProfileName { get; private set; }
 
-            public Dictionary<PeripheralType, Dictionary<string, bool>> EnabledStates;
+            public Dictionary<DeviceType, Dictionary<string, bool>> EnabledStates;
 
             public ProfileSaveData(string profileName)
             {
                 ProfileName = profileName;
-                EnabledStates = new Dictionary<PeripheralType, Dictionary<string, bool>>();
+                EnabledStates = new Dictionary<DeviceType, Dictionary<string, bool>>();
             }
 
-            public void Set(PeripheralType peripheralType, string actionKey, bool value)
+            public void Set(DeviceType peripheralType, string actionKey, bool value)
             {
                 if (!EnabledStates.ContainsKey(peripheralType))
                 {
@@ -136,7 +136,7 @@ namespace ExtraBindings
 
         static Dictionary<int, InputActionMap> InputActionMapCache = new Dictionary<int, InputActionMap>();
 
-        static Dictionary<int, PeripheralType> PlayerDeviceCache = new Dictionary<int, PeripheralType>();
+        static Dictionary<int, DeviceType> PlayerDeviceCache = new Dictionary<int, DeviceType>();
 
         private static Dictionary<Category, List<string>> ActionKeysByCategory;
 
@@ -372,7 +372,7 @@ namespace ExtraBindings
                     continue;
                 }
 
-                if (!PlayerDeviceCache.TryGetValue(player.ID, out PeripheralType peripheralType))
+                if (!PlayerDeviceCache.TryGetValue(player.ID, out DeviceType peripheralType))
                 {
                     Main.LogError($"Could not peripheral type for {player.ID}");
                     continue;
@@ -418,7 +418,7 @@ namespace ExtraBindings
                     continue;
                 }
 
-                if (!PlayerDeviceCache.TryGetValue(player.ID, out PeripheralType peripheralType))
+                if (!PlayerDeviceCache.TryGetValue(player.ID, out DeviceType peripheralType))
                 {
                     Main.LogError($"Could not peripheral type for {player.ID}");
                     continue;
@@ -489,7 +489,7 @@ namespace ExtraBindings
         {
             foreach (KeyValuePair<string, InputAction> binding in Registered)
             {
-                binding.Value.ApplyBindings(inputActionMap.FindAction(binding.Key), PeripheralType.Keyboard);
+                binding.Value.ApplyBindings(inputActionMap.FindAction(binding.Key), DeviceType.Keyboard);
             }
         }
 
@@ -497,7 +497,7 @@ namespace ExtraBindings
         {
             foreach (KeyValuePair<string, InputAction> binding in Registered)
             {
-                binding.Value.ApplyBindings(inputActionMap.FindAction(binding.Key), PeripheralType.Controller);
+                binding.Value.ApplyBindings(inputActionMap.FindAction(binding.Key), DeviceType.Controller);
             }
         }
 
@@ -515,7 +515,7 @@ namespace ExtraBindings
 
             if (!PlayerDeviceCache.ContainsKey(playerId))
             {
-                PlayerDeviceCache.Add(playerId, PeripheralType.Controller);
+                PlayerDeviceCache.Add(playerId, DeviceType.Controller);
             }
             PlayerDeviceCache[playerId] = InputAction.ControllerTypeMapping[controllerType];
 

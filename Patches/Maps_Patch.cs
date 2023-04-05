@@ -25,7 +25,7 @@ namespace ExtraBindings.Patches
         {
             __result.FindAction(Controls.Movement).RemoveAction();
             __result.AddAction(Controls.Movement);
-            InputAction.ApplyDefaultBinding(__result.FindAction(Controls.Movement), PeripheralType.Controller);
+            InputAction.ApplyDefaultBinding(__result.FindAction(Controls.Movement), DeviceType.Controller);
 
             BindingsRegistry.ApplyGamepadBindings(ref __result);
 

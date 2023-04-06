@@ -91,7 +91,7 @@ namespace ExtraBindings.Menus
                         //BindingsRegistry.ActionEnabled(player_id, actionKey, true);
                         Main.LogError("Rebind Success");
                         ProfileManager.Main.Save();
-                        BindingsRegistry.SaveProfileData();
+                        BindingsRegistry.SaveProfileBindings();
                         break;
                 }
                 EndRebind(player_id, localisationKey, actionKey, remapElement);

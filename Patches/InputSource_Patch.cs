@@ -36,21 +36,21 @@ namespace ExtraBindings.Patches
         }
 
 
-        [HarmonyPatch(typeof(InputSource), "NewDeviceUsed")]
-        [HarmonyPostfix]
-        static void NewDeviceUsed_Postfix(ref Dictionary<int, PlayerData> ___Players)
-        {
-            foreach (PlayerData player in ___Players.Values)
-            {
-                foreach (UnityEngine.InputSystem.InputAction action in player.InputData.Map.actions)
-                {
-                    if (action.bindings.Count == 0)
-                    {
-                        BindingsRegistry.ActionEnabled(action, false, doNotSave: true);
-                        InputAction.ApplyDefaultBinding(action, player.ControllerType);
-                    }
-                }
-            }
-        }
+        //[HarmonyPatch(typeof(InputSource), "NewDeviceUsed")]
+        //[HarmonyPostfix]
+        //static void NewDeviceUsed_Postfix(ref Dictionary<int, PlayerData> ___Players)
+        //{
+        //    //foreach (PlayerData player in ___Players.Values)
+        //    //{
+        //    //    foreach (UnityEngine.InputSystem.InputAction action in player.InputData.Map.actions)
+        //    //    {
+        //    //        if (action.bindings.Count == 0)
+        //    //        {
+        //    //            BindingsRegistry.ActionEnabled(action, false, doNotSave: true);
+        //    //            InputAction.ApplyDefaultBinding(action, player.ControllerType);
+        //    //        }
+        //    //    }
+        //    //}
+        //}
     }
 }

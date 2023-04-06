@@ -101,27 +101,56 @@ namespace ExtraBindings
         {
             public string ProfileName { get; private set; }
 
-            public Dictionary<DeviceType, Dictionary<string, bool>> EnabledStates;
+            public Dictionary<DeviceType, Dictionary<string, ActionSaveData>> SaveData;
 
             public ProfileSaveData(string profileName)
             {
                 ProfileName = profileName;
-                EnabledStates = new Dictionary<DeviceType, Dictionary<string, bool>>();
+                SaveData = new Dictionary<DeviceType, Dictionary<string , ActionSaveData>>();
             }
 
-            public void Set(DeviceType peripheralType, string actionKey, bool value)
+            public void Set(DeviceType deviceType, InputActionMap inputActionMap)
             {
-                if (!EnabledStates.ContainsKey(peripheralType))
+                foreach(UnityEngine.InputSystem.InputAction action in inputActionMap.actions)
                 {
-                    EnabledStates.Add(peripheralType, new Dictionary<string, bool>());
+                    if (!SaveData.ContainsKey(deviceType))
+                    {
+                        SaveData.Add(deviceType, new Dictionary<string , ActionSaveData>());
+                    }
+                    Dictionary<string, ActionSaveData> deviceData = SaveData[deviceType];
+                    
+                    if (!deviceData.ContainsKey(action.name))
+                    {
+                        deviceData.Add(action.name, new ActionSaveData(action));
+                    }
+                    deviceData[action.name] = new ActionSaveData(action);
                 }
 
-                if (!EnabledStates[peripheralType].ContainsKey(actionKey))
-                {
-                    EnabledStates[peripheralType].Add(actionKey, value);
-                    return;
-                }
-                EnabledStates[peripheralType][actionKey] = value;
+                //bool enabled = inputAction.IsDeviceBinded(peripheralType);
+                //(InputAction, bool) saveData = (inputAction, enabled);
+                //if (!InputActionMaps[peripheralType].ContainsKey(inputAction.ID))
+                //{
+                //    InputActionMaps[peripheralType].Add(inputAction.ID, saveData);
+                //    return;
+                //}
+                //InputActionMaps[peripheralType][inputAction.ID] = saveData;
+            }
+        }
+
+        [Serializable]
+        private struct ActionSaveData
+        {
+            public string ActionKey { get; private set; }
+
+            public List<InputBinding> Bindings;
+
+            public bool IsEnabled;
+
+            public ActionSaveData(UnityEngine.InputSystem.InputAction action)
+            {
+                ActionKey = action.name;
+                Bindings = action.bindings.ToList();
+                IsEnabled = action.enabled;
             }
         }
 
@@ -287,7 +316,7 @@ namespace ExtraBindings
                         break;
                 }
                 if (!doNotSave)
-                    SaveProfileData();
+                    SaveProfileBindings();
             }
             return action.enabled;
         }
@@ -355,7 +384,7 @@ namespace ExtraBindings
             }
         }
 
-        internal static void SaveProfileData()
+        internal static void SaveProfileBindings()
         {
             if (Players.Main == null)
                 return;
@@ -383,10 +412,12 @@ namespace ExtraBindings
                     ProfileData.Add(profile.Name, new ProfileSaveData(profile.Name));
                 }
 
-                foreach (KeyValuePair<string, InputAction> action in Registered)
-                {
-                    ProfileData[profile.Name].Set(peripheralType, action.Key, ActionEnabled(player.ID, action.Value.ID));
-                }
+                ProfileData[profile.Name].Set(peripheralType, map);
+
+                //foreach (KeyValuePair<string, InputAction> action in Registered)
+                //{
+                //    ProfileData[profile.Name].Set(peripheralType, action.Key, ActionEnabled(player.ID, action.Value.ID));
+                //}
             }
             PruneDeletedProfiles();
             WriteProfileData(SAVE_FOLDER, SAVE_FILENAME);
@@ -398,7 +429,7 @@ namespace ExtraBindings
             ProfileData = ProfileData.Where(kvp => allProfiles.Contains(kvp.Key)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
         }
 
-        internal static void LoadEnabledStates()
+        internal static void LoadProfileBindings()
         {
             ReadProfileData(SAVE_FOLDER, SAVE_FILENAME);
             foreach (PlayerInfo player in Players.Main.All())
@@ -420,31 +451,57 @@ namespace ExtraBindings
 
                 if (!PlayerDeviceCache.TryGetValue(player.ID, out DeviceType peripheralType))
                 {
-                    Main.LogError($"Could not peripheral type for {player.ID}");
+                    Main.LogError($"Could not get peripheral type for {player.ID}");
                     continue;
                 }
 
-                foreach (string actionKey in Registered.Keys)
+                if (!data.SaveData.TryGetValue(peripheralType, out Dictionary<string, ActionSaveData> saveData))
+                {
+                    Main.LogWarning($"Profile save data for {profile.Name} does not contain data for {peripheralType}");
+                    continue;
+                }
+
+                bool mapEnabled = map.enabled;
+                map.Disable();
+                HashSet<string> actionsToDisable = new HashSet<string>();
+                List<string> actionKeys = new List<string>();
+                int j = 1;
+                foreach (string actionKey in map.actions.Select(x => x.name))
+                {
+                    Main.LogInfo($"{j++}: {actionKey}");
+                    actionKeys.Add(actionKey);
+                }
+
+                foreach (string actionKey in actionKeys)
                 {
                     UnityEngine.InputSystem.InputAction inputAction = map.FindAction(actionKey);
-                    if (inputAction == null)
+                    if (inputAction == null || !saveData.TryGetValue(actionKey, out ActionSaveData actionSaveData))
                         continue;
 
-                    if (!data.EnabledStates.TryGetValue(peripheralType, out Dictionary<string, bool> deviceDict))
-                        continue;
+                    InputActionType inputType = inputAction.type;
 
-                    if (!deviceDict.TryGetValue(actionKey, out bool enabled))
-                        continue;
+                    inputAction.RemoveAction();
+                    inputAction = map.AddAction(actionKey, inputType);
 
-                    switch (enabled)
+                    for (int i = 0; i < actionSaveData.Bindings.Count; i++)
                     {
-                        case true:
-                            inputAction.Enable();
-                            break;
-                        case false:
-                            inputAction.Disable();
-                            break;
+                        inputAction.AddBinding(actionSaveData.Bindings[i]);
                     }
+
+                    if (!actionSaveData.IsEnabled)
+                    {
+                        actionsToDisable.Add(actionKey);
+                    }
+                }
+                if (mapEnabled)
+                    map.Enable();
+
+                foreach (string actionKey in actionsToDisable)
+                {
+                    UnityEngine.InputSystem.InputAction action = map.FindAction(actionKey);
+                    if (action == null)
+                        continue;
+                    action.Disable();
                 }
             }
         }
@@ -486,19 +543,11 @@ namespace ExtraBindings
             }
         }
 
-        internal static void ApplyKeyboardBindings(ref InputActionMap inputActionMap)
+        internal static void ApplyBindings(ref InputActionMap inputActionMap, DeviceType device)
         {
             foreach (KeyValuePair<string, InputAction> binding in Registered)
             {
-                binding.Value.ApplyBindings(inputActionMap.FindAction(binding.Key), DeviceType.Keyboard);
-            }
-        }
-
-        internal static void ApplyGamepadBindings(ref InputActionMap inputActionMap)
-        {
-            foreach (KeyValuePair<string, InputAction> binding in Registered)
-            {
-                binding.Value.ApplyBindings(inputActionMap.FindAction(binding.Key), DeviceType.Controller);
+                binding.Value.ApplyBindings(inputActionMap, device);
             }
         }
 
@@ -522,7 +571,7 @@ namespace ExtraBindings
 
             if (playersHashCache.IsChanged(true))
             {
-                LoadEnabledStates();
+                LoadProfileBindings();
             }
 
             foreach (KeyValuePair<string, InputAction> kvp in Registered)

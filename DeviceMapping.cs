@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using UnityEngine.InputSystem;
 using static ExtraBindings.BindingExtensions;
 
@@ -140,6 +141,16 @@ namespace ExtraBindings
             AllowRebind = allowRebind;
         }
 
+        public InputAction CopyInstance()
+        {
+            return new InputAction(ID, Name, Category, InputType, AllowRebind);
+        }
+
+        public bool IsDeviceBinded(DeviceType device)
+        {
+            return Bindings.ContainsKey(device);
+        }
+
         public InputAction AddBinding(DeviceType device, string bindingKey)
         {
             if (!Bindings.ContainsKey(device))
@@ -157,13 +168,26 @@ namespace ExtraBindings
 
         internal void ApplyBindings(in UnityEngine.InputSystem.InputAction action, DeviceType device)
         {
-            foreach (KeyValuePair<DeviceType, string> deviceBinding in Bindings)
+            if (!Bindings.TryGetValue(device, out string deviceBinding) && action.bindings.Count == 0)
             {
-                if (device == deviceBinding.Key)
-                {
-                    Devices[device].AddBinding(action, deviceBinding.Value);
-                }
+                Main.LogInfo($"Applying default binding for {action.name}");
+                ApplyDefaultBinding(action, device);
+                action.Disable();
+                return;
             }
+            Devices[device].AddBinding(action, deviceBinding);
+            action.Enable();
+        }
+
+        internal void ApplyBindings(in UnityEngine.InputSystem.InputActionMap inputActionMap, DeviceType device)
+        {
+            UnityEngine.InputSystem.InputAction action = inputActionMap.FindAction(ID);
+            if (action == null)
+            {
+                Main.LogError($"InputActionMap does not contain action id {ID}!");
+                return;
+            }
+            ApplyBindings(action, device);
         }
 
         public static void ApplyDefaultBinding(in UnityEngine.InputSystem.InputAction action, DeviceType device)

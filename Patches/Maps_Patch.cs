@@ -27,7 +27,7 @@ namespace ExtraBindings.Patches
             __result.AddAction(Controls.Movement);
             InputAction.ApplyDefaultBinding(__result.FindAction(Controls.Movement), DeviceType.Controller);
 
-            BindingsRegistry.ApplyGamepadBindings(ref __result);
+            BindingsRegistry.ApplyBindings(ref __result, DeviceType.Controller);
 
         }
 
@@ -36,7 +36,7 @@ namespace ExtraBindings.Patches
         [HarmonyPostfix]
         static void NewKeyboard_Postfix(ref InputActionMap __result)
         {
-            BindingsRegistry.ApplyKeyboardBindings(ref __result);
+            BindingsRegistry.ApplyBindings(ref __result, DeviceType.Keyboard);
         }
 
         internal static int targetIndex = -1;
